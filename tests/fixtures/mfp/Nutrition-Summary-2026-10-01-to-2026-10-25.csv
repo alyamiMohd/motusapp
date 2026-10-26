@@ -1,0 +1,4 @@
+Date,Meal,Calories,Fat (g),Saturated Fat,Polyunsaturated Fat,Monounsaturated Fat,Trans Fat,Cholesterol,Sodium (mg),Potassium,Carbohydrates (g),Fiber,Sugar,Protein (g),Vitamin A,Vitamin C,Calcium,Iron,Note
+2026-10-20,Breakfast,450.5,12,3,1,4,0,180,400,300,55,6,12,25,10,8,15,10,
+2026-10-20,Lunch,"1,200",40,10,5,15,0,90,1100,800,120,10,8,60,20,30,20,25,
+2026-10-21,Dinner,700,25,8,3,10,0,60,900,600,70,5,6,45,10,5,10,15,"pizza, ""extra cheese"""

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.hevyapp.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="description" content="Motus is a quiet, private dashboard for your sleep, steps, food, weight and workouts. Bring your data from Apple Health, Hevy, Strong or MyFitnessPal; it never leaves your device.">
+<meta property="og:title" content="Motus">
+<meta property="og:description" content="A quiet, private fitness dashboard. Your data stays on your device.">
+<title>Motus</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <p class="banner" id="banner" hidden></p>
+  <div class="top" id="top"></div>
+  <table>
+    <thead><tr><th>Day</th><th>Sleep</th><th>Steps</th><th>Cal</th><th id="kg">Kg</th><th>Lift</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div id="charts"></div>
+  <p class="foot" id="foot"></p>
+</main>
+<script type="module" src="js/pages/home.js"></script>
+</body>
+</html>

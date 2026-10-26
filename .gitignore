@@ -1,0 +1,19 @@
+# secrets: Motus has none, keep it that way
+.env
+.env.*
+*.pem
+*.key
+
+# real personal exports used for local testing never go in the repo
+private/
+export.zip
+!tests/fixtures/export.zip
+*.backup.json
+motus-backup-*.json
+
+# local tooling / OS
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+.claude/settings.local.json

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.hevyapp.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="description" content="Workout ratings from your Hevy or Strong history: estimated 1RM per exercise and a score for every session.">
+<title>Motus · Workouts</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <p class="banner" id="banner" hidden></p>
+  <h2 style="margin-top:0">Last workout rating</h2>
+  <div class="score" id="last"></div>
+
+  <h2>Overall rating, last 4 weeks</h2>
+  <div class="score sm" id="score"></div>
+
+  <h2>Workouts per week, last 12 weeks</h2>
+  <div class="chart" id="weeks"></div>
+
+  <h2>Exercises, estimated 1RM, most recent first</h2>
+  <div id="exercises"></div>
+
+  <h2>Workout ratings &nbsp;<button class="tab on" data-w="0" aria-pressed="true">This week</button> <button class="tab" data-w="1" aria-pressed="false">Last week</button></h2>
+  <div id="ratings"></div>
+
+  <details class="how">
+    <summary><small>How ratings work</small></summary>
+    <p class="note">Each exercise's best set is turned into an estimated one-rep max (weight × (1 + reps ÷ 30), sets of 12 reps or fewer, warm-ups left out). A workout compares each exercise with your average of its last four sessions: 7 is a normal day, up to 10 when you beat it by 10%, never below 3. Exercises you haven't done at least twice before are listed but not rated. The 4-week rating mixes progress (70%) with how often you trained against your goal (30%).</p>
+  </details>
+</main>
+<script type="module" src="js/pages/workouts.js"></script>
+</body>
+</html>

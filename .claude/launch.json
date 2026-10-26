@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "motusapp", "runtimeExecutable": "node", "runtimeArgs": ["serve.mjs", "8098"], "port": 8098 }
+  ]
+}

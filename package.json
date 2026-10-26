@@ -1,0 +1,11 @@
+{
+  "name": "motus",
+  "private": true,
+  "description": "A quiet, private fitness dashboard that runs in the browser. No dependencies.",
+  "type": "module",
+  "scripts": {
+    "start": "node serve.mjs",
+    "test": "node tests/test_core.mjs && node tests/test_importers.mjs && node tests/test_store.mjs"
+  },
+  "engines": { "node": ">=20" }
+}
