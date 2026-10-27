@@ -21,3 +21,4 @@ Thumbs.db
 # Cloudflare local state and secrets
 .dev.vars
 .wrangler/
+tools/shortcut/dist/

@@ -174,6 +174,27 @@ check("…and nobody else's data", (await call("GET", "/api/data", { cookie: sar
 
 section("other paths");
 check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })).status === 404);
+{
+  // what the generated Motus Shortcut sends (tools/shortcut/build.mjs): daily totals with units, raw weight and sleep
+  const d = readHealthUpload({ v: "1", steps: "2026-10-26|8,123\n2026-10-27|2400", calories: "2026-10-26|7531|kJ\n2026-10-27|1650|kcal",
+    active: "2026-10-26|450|kcal", weight: "2026-10-27 07:05|80.9|kg", sleep: "2026-10-26 23:50|2026-10-27 06:30|Core|Apple Watch" });
+  check("Shortcut upload with units: kJ converted, totals and sleep read", d["2026-10-26"].steps === 8123 && d["2026-10-26"].calories === 1800 &&
+    d["2026-10-27"].calories === 1650 && d["2026-10-26"].active_kcal === 450 && d["2026-10-27"].weight_kg === 80.9 && d["2026-10-27"].sleep_hours === 6.67);
+  const { build, toPlist } = await import("../tools/shortcut/build.mjs");
+  const wf = build(), acts = wf.WFWorkflowActions, ids = acts.map(a => a.WFWorkflowActionIdentifier);
+  const post = acts.find(a => a.WFWorkflowActionIdentifier.endsWith("downloadurl")).WFWorkflowActionParameters;
+  const keys = post.WFJSONValues.Value.WFDictionaryFieldValueItems.map(i => i.WFKey.Value.string);
+  const labels = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("filter.health.quantity"))
+    .map(a => a.WFWorkflowActionParameters.WFContentItemFilter.Value.WFActionParameterFilterTemplates[0].Values.Enumeration.Value);
+  check("Shortcut sends exactly the fields the server reads", keys.join() === "v,steps,calories,active,weight,sleep" && post.WFHTTPMethod === "POST");
+  check("Shortcut reads the five Health types", labels.join() === "Steps,Dietary Energy,Active Calories,Weight,Sleep");
+  const open = (kind, mode) => ids.filter((id, i) => id.endsWith(kind) && acts[i].WFWorkflowActionParameters.WFControlFlowMode === mode).length;
+  check("Shortcut: every If and Repeat is closed", open("conditional", 0) === open("conditional", 2) && open("repeat.each", 0) === open("repeat.each", 2) && open("repeat.each", 0) === 5);
+  const uuids = new Set(acts.map(a => a.WFWorkflowActionParameters.UUID).filter(Boolean));
+  const refs = [...JSON.stringify(wf).matchAll(/"OutputUUID":"([^"]+)"/g)].map(m => m[1]);
+  check("Shortcut: every variable points at an action that exists", refs.length > 20 && refs.every(u => uuids.has(u)));
+  check("Shortcut plist is well-formed XML text", /^<\?xml[\s\S]*<\/plist>\n$/.test(toPlist(wf)) && !/[<>]\w*undefined/.test(toPlist(wf)));
+}
 check("upload reader alone: nothing usable -> error", (() => { try { readHealthUpload({ v: 1 }); return false; } catch (e) { return true; } })());
 
 finish();

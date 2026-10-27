@@ -49,7 +49,8 @@ const toKg = (v, unit) => { const u = UNIT.find(([re]) => re.test(String(unit ||
 function fromShortcut(p) {
   const days = {}, put = (d, k, v) => { (days[d] || (days[d] = {}))[k] = v; };
   for (const [field, key] of [["steps", "steps"], ["calories", "calories"], ["active", "active_kcal"]]) {
-    for (const [d, v] of lines(p[field])) { const w = when(d), n = num(v); if (w && n != null) put(w.date, key, Math.round(n)); }
+    // an optional third field is the unit: phones set to kilojoules send kJ
+    for (const [d, v, u] of lines(p[field])) { const w = when(d), n = num(v); if (w && n != null) put(w.date, key, Math.round(/^(kj|كج)/i.test(u || "") ? n / 4.184 : n)); }
   }
   const weights = {};
   for (const [t, v, unit] of lines(p.weight)) {
