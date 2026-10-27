@@ -47,10 +47,10 @@ jobs:
         id: pages
         uses: actions/configure-pages@v5
       - name: Sync
+        # The phone's numbers are read from GitHub's event file, never put in env: a step's env is printed in the log.
         env:
           MOTUS_KEY: ${{ secrets.MOTUS_KEY }}
           HEVY_API_KEY: ${{ secrets.HEVY_API_KEY }}
-          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
           PAGES_URL: ${{ steps.pages.outputs.base_url }}
           RESET: ${{ inputs.reset && 'true' || 'false' }}
         run: node motus/sync/run.mjs out

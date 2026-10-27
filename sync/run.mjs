@@ -7,8 +7,9 @@
 // The log of a public repo is public, so it prints what happened, never any numbers from the data.
 //
 // usage: node sync/run.mjs <out dir>
-// env: MOTUS_KEY (required), PAGES_URL, PAYLOAD (JSON), HEVY_API_KEY, RESET ("true" to start over)
-import { mkdir, writeFile } from "node:fs/promises";
+// env: MOTUS_KEY (required), PAGES_URL, HEVY_API_KEY, RESET ("true" to start over); the upload comes from
+// GITHUB_EVENT_PATH on a repository_dispatch run (PAYLOAD, JSON, overrides it in tests)
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { seal, unseal, SYNC_FILE } from "../js/sync.js";
@@ -61,9 +62,14 @@ export async function runSync(env, { fetchFn = fetch, now = new Date(), log = co
   state.health.days = state.health.days || {};
   state.hevy = state.hevy || { workouts: [] };
 
-  // 2. phone upload
+  // 2. phone upload. In GitHub Actions it is read from the event file: a step's environment is printed in the
+  // (public) log, so the numbers must never be passed as an environment variable. PAYLOAD is for tests.
   let payload = null;
-  try { payload = JSON.parse(env.PAYLOAD || "null"); } catch (e) { errors.push("The phone upload wasn't valid JSON."); }
+  try {
+    if (env.PAYLOAD != null) payload = JSON.parse(env.PAYLOAD || "null");
+    else if (env.GITHUB_EVENT_NAME === "repository_dispatch" && env.GITHUB_EVENT_PATH)
+      payload = JSON.parse(await readFile(env.GITHUB_EVENT_PATH, "utf8")).client_payload || null;
+  } catch (e) { errors.push("The phone upload wasn't valid JSON."); }
   if (payload) {
     let days = null;
     try { days = readPayload(payload); } catch (e) { errors.push("The phone upload couldn't be read: " + e.message); }
