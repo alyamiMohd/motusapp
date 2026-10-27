@@ -43,3 +43,9 @@
 **User asked:** a step-by-step for Resend; then "The terminal said Success! Uploaded secret RESEND_API_KEY. Check that sign-in works."
 **Claude did:** opened a terminal tab at `wrangler secret put RESEND_API_KEY` (PowerShell blocks `npx.ps1`, so `npx.cmd`; the terminal needed its own Cloudflare login, which the owner approved). Confirmed the secret exists; the server now logs Resend's status and error type (never the address) and explains the testing-mode restriction; a request for a made-up address got Resend's 422 validation error, so the key authenticates.
 **Not verified:** a code arriving in the owner's inbox (only the owner can see it).
+
+## 2026-10-27 19:03 (UTC+03) | Session 1, continued | first real sign-in; Hevy next | commit aaa13e1
+**User asked:** "The code arrived and I'm signed in. Next, let's connect Hevy." Then `/handoff` (this save).
+**Claude did:** gave the Hevy steps (Connect → Connect Hevy → copy the key on Hevy's page → Paste key; the key never in chat) and started `wrangler tail motus` in the background to watch the server. Stopped the local dev servers and the earlier log stream; the "Resend key" terminal tab was left for the owner to close (they had typed in it).
+**Outcome:** email sign-in verified live by the owner. Hevy not connected yet at the time of this save; no Hevy request had reached the server.
+**User feedback / corrections:** none.

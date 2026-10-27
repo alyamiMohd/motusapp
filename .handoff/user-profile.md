@@ -29,11 +29,15 @@ Carried over from the `motus` handoff (sessions of 2026-10-21 to 2026-10-24) and
 - 2026-10-22 "0 means I didn't even train" (a trained workout never rates 0) and "If there's new exercises, don't count them".
 - 2026-10-22 Steps and calories average up to yesterday; sleep and weight up to today.
 - 2026-10-21 "you can make the data public no worries, just make sure my api keys are safe."
+- 2026-10-26 "The whole point of this, is to once connect your apps, and then have it fully automated the whole time ... make the people's life easier by just asking them once."
+- 2026-10-27 "This is the most complicated and insane onboarding for the users, and literally no user would complete this" (on the GitHub-copy setup) and "make it a click of a button integrations ... Make it a seamless integration". Judges every flow by how few steps a stranger needs; anything needing GitHub, tokens or secrets from users is out.
+- Answers multiple-choice questions readily (chose GitHub Actions, then email code, then Shortcut + accounts, then the `motusapp` address); short messages like "Try again" mean "carry on with the work".
 - 2026-10-26 "remove 'My' integraitons, as I will be publishing this to the internet, and make people use this application, so just add some dummy data to demonstrate the application"; "This app will be published publicly, and for public use so make it for that".
 
 ## Environment
 - Windows 11 laptop, Claude desktop app (Git Bash + PowerShell), iPhone with Shortcuts and Apple Health. Timezone Asia/Riyadh (UTC+3). Python 3.10 and Node 24 on this laptop.
-- Accounts (names only): GitHub `alyamiMohd` (`gh` signed in), Hevy Pro, MyFitnessPal, the Health Exporter iPhone app.
+- Accounts (names only): GitHub `alyamiMohd` (`gh` signed in), Hevy Pro, MyFitnessPal, the Health Exporter iPhone app, Cloudflare (free; workers.dev subdomain `motusapp`), Resend (free; testing mode, no domain yet).
+- This laptop: PowerShell's execution policy blocks `npx.ps1` (use `npx.cmd`); Claude's Bash and the owner's terminal keep separate wrangler logins.
 
 ## Things that frustrated them
 - Data not updating without a visible reason; a workout rating of 0.0; layouts that looked wrong on the iPhone; being asked to do work Claude could do.

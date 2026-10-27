@@ -53,5 +53,6 @@ Production secrets via `npx wrangler secret put`: `HEVY_SECRET` (32 random bytes
 ## Verified (2026-10-27)
 - `npm test`: 173 checks pass.
 - `wrangler dev` in the Browser pane: sign-in with a printed code; HttpOnly cookie; Shortcut token + simulated upload (curl) → Home shows the numbers (sleep 7.4 h / 7.3 h as expected); Connect Hevy opens Hevy's key page, a fake key gets Hevy's real refusal; a CSV import while signed in is saved to the account; sign out clears the device, sign in brings it all back; the cron runs.
+- Live (2026-10-27): deployed at https://motus.motusapp.workers.dev; secrets HEVY_SECRET, CODE_PEPPER, RESEND_API_KEY set; the owner signed in with a real emailed code.
 ## Not verified
-Deploy to Cloudflare; real Resend emails; Hevy with a real key; the real Shortcut on an iPhone (Health permission, automation, Arabic-language phone); free-plan CPU limits under real load.
+Hevy with a real key; the real Shortcut on an iPhone (Health permission, automation, Arabic-language phone); free-plan CPU limits under real load.
