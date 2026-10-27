@@ -1,5 +1,6 @@
 // Builds the Motus Shortcut (Apple's own actions only) as an unsigned XML plist: `node tools/shortcut/build.mjs`.
-// Sign it with `node tools/shortcut/sign.mjs` (RoutineHub's HubSign) or `shortcuts sign --mode anyone` on a Mac.
+// Sign it on a Mac signed in to iCloud: `shortcuts sign --mode anyone -i <plist> -o Motus.shortcut` (GitHub's Macs
+// are not signed in to iCloud, so CI cannot; tools/shortcut/sign.mjs tries RoutineHub's HubSign, behind a bot check now).
 //
 // What it does, matching public/shortcut.html and readHealthUpload in public/js/health.js:
 //   Finish in Motus runs it with "<upload url>|<token>" as input; it keeps that in motus.txt (Shortcuts folder).
