@@ -21,7 +21,7 @@
 - Cloudflare free plan: 10 ms CPU per request/cron; Hevy syncs are done in small steps for that reason. With real users, the $5/month Workers plan removes the risk.
 
 ## Next action
-**The owner tests the live app** (Claude verified it first). Hevy with a real key and the Shortcut on a real iPhone are the untested parts. Open: the iCloud link the owner sent is a Shortcut named "Health to Drive", not "Motus"; ask what it is before using it. Domain: owner will buy later.
+**Motus Shortcut:** generated (`node tools/shortcut/build.mjs`), unsigned. Signing blocked (GitHub Mac has no iCloud; HubSign behind a bot check). Next: owner chooses — build by hand on iPhone with Claude guiding, or any Mac with iCloud runs `shortcuts sign --mode anyone`. Deploy fbeb46a (kJ) needs the owner's OK. Owner still to test the live app.
 
 ## Open questions waiting on the owner
 - Archive or delete `alyamiMohd/motus-sync`? Default: leave it until asked.
