@@ -5,10 +5,14 @@ import { seal, unseal } from "./util.js";
 
 const API = "https://api.hevyapp.com/v1";
 export const PAGES_PER_STEP = 5;
+// HEVY_API is set only in a local .dev.vars, to try the whole flow against tests/mock_hevy.mjs
+const base = env => env.HEVY_API || API;
 
-async function hevyGet(path, key, fetchFn = fetch) {
-  const res = await fetchFn(API + path, { headers: { "api-key": key, accept: "application/json" } });
+async function hevyGet(path, key, fetchFn = fetch, root = API) {
+  const res = await fetchFn(root + path, { headers: { "api-key": key, accept: "application/json" } });
   if (res.status === 401 || res.status === 403) throw Object.assign(new Error("Hevy didn't accept the key. It needs Hevy Pro; copy it again from Hevy → Settings → Developer."), { status: 400 });
+  // Hevy answers 404 for a page past the last one (also seen by the browser importer): nothing more to read
+  if (res.status === 404 && path.startsWith("/workouts/events")) return { page_count: 0, events: [] };
   if (res.status === 429) throw Object.assign(new Error("Hevy is busy. Motus will try again shortly."), { retry: true });
   if (!res.ok) throw Object.assign(new Error(`Hevy answered with an error (${res.status}).`), { retry: true });
   return res.json();
@@ -25,7 +29,7 @@ export const trim = w => ({
 export async function connect(db, env, userId, key, fetchFn = fetch) {
   key = String(key || "").trim();
   if (!/^[\w-]{8,100}$/.test(key)) throw Object.assign(new Error("That doesn't look like a Hevy API key."), { status: 400 });
-  await hevyGet("/user/info", key, fetchFn);
+  await hevyGet("/user/info", key, fetchFn, base(env));
   await db.prepare("INSERT INTO hevy (user_id, key_enc, since, next_page, started, synced, error) VALUES (?, ?, NULL, NULL, NULL, NULL, NULL) " +
     "ON CONFLICT (user_id) DO UPDATE SET key_enc = excluded.key_enc, since = NULL, next_page = NULL, started = NULL, error = NULL")
     .bind(userId, await seal(key, env.HEVY_SECRET)).run();
@@ -41,7 +45,7 @@ export async function step(db, env, userId, fetchFn = fetch, now = new Date()) {
   let page = row.next_page || 1, changed = 0, done = false;
   try {
     for (let n = 0; n < PAGES_PER_STEP; n++, page++) {
-      const data = await hevyGet(`/workouts/events?page=${page}&pageSize=10&since=${encodeURIComponent(since)}`, key, fetchFn);
+      const data = await hevyGet(`/workouts/events?page=${page}&pageSize=10&since=${encodeURIComponent(since)}`, key, fetchFn, base(env));
       const writes = [];
       for (const ev of data.events || []) {
         if (ev.type === "deleted" && ev.id) writes.push(db.prepare("DELETE FROM workouts WHERE user_id = ? AND id = ?").bind(userId, String(ev.id)));

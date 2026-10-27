@@ -15,6 +15,7 @@ const fakeHevy = async (url, opt) => {
   if (!url.startsWith("https://api.hevyapp.com/v1/")) throw new Error("unexpected " + url);
   if (opt.headers["api-key"] !== "good-key-123456") return new Response("", { status: 401 });
   if (hevyMode === "busy") return new Response("", { status: 429 });
+  if (hevyMode === "nothing" && url.includes("/workouts/events")) return Response.json({ error: "Page not found" }, { status: 404 });
   if (url.includes("/user/info")) return Response.json({ data: { id: "u", is_pro: true } });
   const u = new URL(url), page = +u.searchParams.get("page"), since = u.searchParams.get("since");
   if (since !== "1970-01-01T00:00:00Z") return Response.json({ page: 1, page_count: 1, events: [{ type: "deleted", id: "w1" },
@@ -141,6 +142,11 @@ r = await call("POST", "/api/hevy/sync", { cookie: sara });
 d = (await call("GET", "/api/data", { cookie: sara })).json;
 check("next sync asks only for changes since the last one: a delete and a new workout", r.json.done && d.workouts.length === 23 &&
   !d.workouts.some(w => w.id === "w1") && d.workouts.some(w => w.id === "w99"));
+hevyMode = "nothing";
+r = await call("POST", "/api/hevy/sync", { cookie: sara });
+check("no new changes (Hevy answers 404): done, no error, workouts kept", r.status === 200 && r.json.done &&
+  !(await call("GET", "/api/me", { cookie: sara })).json.hevy.error && (await call("GET", "/api/data", { cookie: sara })).json.workouts.length === 23);
+hevyMode = "ok";
 env.DB.sql("UPDATE hevy SET since = NULL, next_page = NULL");
 env.SYNC_USERS_PER_RUN = "5";
 const { PAGES_PER_STEP } = await import("../worker/hevy.js");

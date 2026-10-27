@@ -42,6 +42,8 @@ npm start                # only the static pages, no accounts, on http://localho
 
 Local secrets live in `.dev.vars` (git-ignored): `HEVY_SECRET` (32 random bytes, base64), `CODE_PEPPER`, `DEV_SHOW_CODES=1`.
 Create the local tables once: `npx wrangler d1 execute motus --local --file worker/schema.sql`.
+To try Connect Hevy without a real key: `node tests/mock_hevy.mjs`, add `HEVY_API=http://127.0.0.1:8790/v1` to `.dev.vars`, and paste the key `mock-hevy-key-123` (40 made-up workouts).
+On Windows, if the local database fails with `SQLITE_CANTOPEN` (path too long), add `--persist-to` with a short folder to both commands.
 
 **First deploy to Cloudflare** (free plan to start):
 
