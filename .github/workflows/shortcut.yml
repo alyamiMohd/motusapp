@@ -13,8 +13,10 @@ jobs:
         with: { node-version: 24 }
       - run: node tools/shortcut/build.mjs
       - run: plutil -lint tools/shortcut/dist/Motus.unsigned.plist
+      # `shortcuts sign` goes by the file name: the input has to end in .shortcut
+      - run: plutil -convert binary1 -o Motus.unsigned.shortcut tools/shortcut/dist/Motus.unsigned.plist
       - name: Sign (anyone can import)
-        run: shortcuts sign --mode anyone --input tools/shortcut/dist/Motus.unsigned.plist --output Motus.shortcut
+        run: shortcuts sign --mode anyone --input Motus.unsigned.shortcut --output Motus.shortcut
       - run: head -c 4 Motus.shortcut | grep -q AEA1 && ls -l Motus.shortcut
       - uses: actions/upload-artifact@v4
         with: { name: Motus.shortcut, path: Motus.shortcut }
