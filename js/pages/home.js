@@ -2,9 +2,10 @@
 import { prefs, today, add, weekStart, weekAvg, avgRange, workoutsBetween, label, dayMonth, NO, esc, int, one,
          unit, toDisp, initNav, DAY_LETTERS, DAY_SHORT, dow } from "../core.js";
 import { getData } from "../store.js";
+import { autoRefresh, getSync } from "../sync.js";
 
-const data = getData();
-const days = data.days;
+let data, days;
+const load = () => { data = getData(); days = data.days; };
 
 const M = [
   { k: "sleep_hours", name: "Sleep", f: one, met: v => v >= prefs.sleep },
@@ -107,8 +108,10 @@ function banner() {
   if (data.demo) {
     el.innerHTML = 'You’re looking at <b>demo data</b> from a made-up person. <a href="connect.html">Connect your apps</a> to see your own; it stays on your device.';
   } else {
-    const newest = Object.keys(days).filter(d => d <= today).sort().pop();
-    if (newest && newest < add(today, -2)) el.innerHTML = `Your newest data is from ${DAY_SHORT[dow(newest)]} ${dayMonth(newest)}. <a href="connect.html">Import again</a> to bring it up to date.`;
+    const newest = Object.keys(days).filter(d => d <= today).sort().pop(), sync = getSync();
+    if (sync && sync.hevyError) el.innerHTML = `Hevy didn't sync: ${esc(sync.hevyError)} <a href="connect.html#auto">Check your setup</a>.`;
+    else if (newest && newest < add(today, -2)) el.innerHTML = `Your newest data is from ${DAY_SHORT[dow(newest)]} ${dayMonth(newest)}. ` +
+      (sync ? 'Check that the Motus automation on your phone ran. <a href="connect.html#auto">Automatic sync</a>' : '<a href="connect.html">Import again</a> to bring it up to date.');
     else { el.hidden = true; return; }
   }
   el.hidden = false;
@@ -117,8 +120,9 @@ function banner() {
 function footer() {
   const el = document.getElementById("foot");
   if (data.demo) { el.textContent = "Demo data, made up in your browser. Nothing here is a real person."; return; }
-  const when = iso => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-  el.textContent = "From " + data.sources.map(s => `${s.name} (updated ${when(s.imported)})`).join(", ") + ". Stored on this device only.";
+  const when = iso => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  const sync = getSync();
+  el.textContent = "From " + data.sources.map(s => `${s.name} (updated ${when(s.id === "sync" && sync && sync.updated ? sync.updated : s.imported)})`).join(", ") + ". Stored on this device only.";
 }
 
 function render() {
@@ -126,5 +130,7 @@ function render() {
   document.getElementById("charts").replaceChildren(...M.map(chart));
 }
 
+const show = () => { load(); render(); banner(); footer(); };
 initNav("home", render);
-render(); banner(); footer();
+show();
+autoRefresh().then(changed => { if (changed) show(); });

@@ -1,0 +1,69 @@
+# Keeps your Motus up to date by itself: every 3 hours (Hevy) and whenever your iPhone sends today's Apple Health
+# numbers. Your data is encrypted with your MOTUS_KEY before it is published on this copy's GitHub Pages site.
+# The code it runs comes from https://github.com/alyamiMohd/motusapp (sync/run.mjs).
+name: Motus sync
+
+on:
+  schedule:
+    - cron: "23 */3 * * *"
+  repository_dispatch:
+    types: [health]
+  workflow_dispatch:
+    inputs:
+      reset:
+        description: "Start over (only if you made a new MOTUS_KEY on purpose)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: write
+
+concurrency:
+  group: motus-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    # the template itself only runs when started by hand or by an upload; copies also run on the schedule
+    if: github.event_name != 'schedule' || github.repository != 'alyamiMohd/motus-sync'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Get Motus
+        uses: actions/checkout@v4
+        with:
+          repository: alyamiMohd/motusapp
+          path: motus
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check that GitHub Pages is on
+        id: pages
+        uses: actions/configure-pages@v5
+      - name: Sync
+        env:
+          MOTUS_KEY: ${{ secrets.MOTUS_KEY }}
+          HEVY_API_KEY: ${{ secrets.HEVY_API_KEY }}
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          PAGES_URL: ${{ steps.pages.outputs.base_url }}
+          RESET: ${{ inputs.reset && 'true' || 'false' }}
+        run: node motus/sync/run.mjs out
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+      - name: Publish
+        id: deploy
+        uses: actions/deploy-pages@v4
+      - name: Keep the schedule on
+        # GitHub pauses schedules in repositories with no activity for 60 days
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow enable motus-sync.yml --repo "$GITHUB_REPOSITORY" || true
+      - name: Report problems
+        run: if [ -s sync-errors.txt ]; then cat sync-errors.txt; exit 1; fi

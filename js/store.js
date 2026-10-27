@@ -8,6 +8,7 @@ import { generateDemo } from "./demo.js";
 const KEY = "motusapp-data-v1";
 export const SOURCES = {
   manual: "Entered by hand",
+  sync: "Automatic sync",
   apple: "Apple Health",
   mfp: "MyFitnessPal",
   csv: "Spreadsheet",

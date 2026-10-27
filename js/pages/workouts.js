@@ -2,10 +2,9 @@
 import { prefs, today, add, weekStart, workoutsBetween, label, esc, unit, toDisp, initNav } from "../core.js";
 import { getData } from "../store.js";
 import { exerciseStats, overallRating, workoutScore, mean } from "../stats.js";
+import { autoRefresh } from "../sync.js";
 
-const data = getData();
-const { days, exercises } = data;
-let showAll = false, weekOffset = 0;
+let data, days, exercises, showAll = false, weekOffset = 0;
 
 const pctText = p => (p > 0 ? "+" : p < 0 ? "−" : "") + Math.abs(p * 100).toFixed(1) + "%";
 const scoreHTML = sc => sc == null ? '<span class="no">no data</span>' : `<span class="${sc >= 7 ? "good" : ""}">${sc.toFixed(1)}</span>`;
@@ -91,11 +90,16 @@ function render() {
   renderLast(); renderScore(stats); renderWeeks(); renderExercises(stats); renderRatings();
 }
 
-initNav("workouts", render);
-if (!workoutDates().some(d => d >= weekStart(today))) weekOffset = 1;   // nothing yet this week: open on last week
-render();
-if (data.demo) {
+function show() {
+  ({ days, exercises } = data = getData());
+  render();
   const el = document.getElementById("banner");
   el.innerHTML = 'Demo workouts. <a href="connect.html">Connect Hevy or Strong</a> to rate your own.';
-  el.hidden = false;
+  el.hidden = !data.demo;
 }
+
+initNav("workouts", render);
+data = getData(); days = data.days;
+if (!workoutDates().some(d => d >= weekStart(today))) weekOffset = 1;   // nothing yet this week: open on last week
+show();
+autoRefresh().then(changed => { if (changed) show(); });

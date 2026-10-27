@@ -22,8 +22,9 @@ export function fromApiWorkouts(list) {
   }).filter(Boolean);
 }
 
-// Every workout, newest first, 10 per page (Hevy's limit). Retries busy/server errors; a bad key stops at once.
-export async function fetchHevy(key, onProgress = () => {}, fetchFn = fetch, wait = ms => new Promise(r => setTimeout(r, ms))) {
+// Every workout as Hevy sends it, trimmed to what Motus uses. Also used by the GitHub sync (sync/run.mjs).
+// Newest first, 10 per page (Hevy's limit). Retries busy/server errors; a bad key stops at once.
+export async function fetchHevyWorkouts(key, onProgress = () => {}, fetchFn = fetch, wait = ms => new Promise(r => setTimeout(r, ms))) {
   key = String(key || "").trim();
   if (!/^[\w-]{8,}$/.test(key)) throw new Error("That doesn't look like a Hevy API key.");
   const all = [];
@@ -43,6 +44,12 @@ export async function fetchHevy(key, onProgress = () => {}, fetchFn = fetch, wai
     pages = Math.min(data.page_count || 1, 2000);
     onProgress(page / pages, all.length);
   }
+  return all.map(w => ({ title: w.title, start_time: w.start_time, end_time: w.end_time,
+    exercises: (w.exercises || []).map(e => ({ title: e.title, sets: (e.sets || []).map(s => ({ type: s.type, weight_kg: s.weight_kg, reps: s.reps })) })) }));
+}
+
+export async function fetchHevy(key, onProgress, fetchFn, wait) {
+  const all = await fetchHevyWorkouts(key, onProgress, fetchFn, wait);
   return { ...summarizeWorkouts(fromApiWorkouts(all)), replace: true, count: all.length };
 }
 

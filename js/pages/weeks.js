@@ -2,10 +2,10 @@
 import { prefs, add, dayMonth, one, int, unit, toDisp, initNav, download } from "../core.js";
 import { getData } from "../store.js";
 import { buildWeeks } from "../stats.js";
+import { autoRefresh } from "../sync.js";
 
 const SHOWN = 12, NODATA = '<span class="no">no data</span>';
-const data = getData();
-let weeks = [], showAll = false;
+let data, weeks = [], showAll = false;
 
 const span = w => (w.start.slice(5, 7) === w.end.slice(5, 7) ? String(+w.start.slice(8)) : dayMonth(w.start)) + "–" + dayMonth(w.end);
 const cell = (v, fmt, green) => (v == null ? `<td>${NODATA}</td>` : `<td class="${green ? "good" : ""}">${fmt(v)}</td>`);
@@ -43,10 +43,13 @@ function csv() {
 
 document.getElementById("more").onclick = () => { showAll = !showAll; render(); };
 document.getElementById("csv").onclick = () => download("motus-weeks.csv", csv(), "text/csv");
-initNav("weeks", render);
-render();
-if (data.demo) {
+function show() {
+  data = getData();
+  render();
   const el = document.getElementById("banner");
   el.innerHTML = 'Demo weeks. <a href="connect.html">Connect your apps</a> to see your own history.';
-  el.hidden = false;
+  el.hidden = !data.demo;
 }
+initNav("weeks", render);
+show();
+autoRefresh().then(changed => { if (changed) show(); });

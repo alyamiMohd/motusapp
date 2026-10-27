@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.hevyapp.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.hevyapp.com https://*.github.io; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="description" content="Bring your data into Motus from Apple Health, Hevy, Strong, MyFitnessPal or a spreadsheet. It stays on your device.">
 <title>Motus · Connect</title>
@@ -13,8 +13,43 @@
 <body>
 <main class="connect">
   <h1>Connect your apps</h1>
-  <p class="lead">Motus reads your exports right here in your browser and keeps them on this device. No account, no server, nothing uploaded.</p>
+  <p class="lead">Connect once and Motus keeps itself up to date, or import a file whenever you like. There's no Motus account and no Motus server: what you see is kept on this device.</p>
   <p class="state" id="state"></p>
+
+  <section class="app" id="auto" aria-labelledby="h-auto">
+    <div class="app-head"><h2 id="h-auto">Automatic</h2><span class="pill" data-src="sync"></span></div>
+    <p class="what">Set it up once and Motus keeps itself up to date: Apple Health from your iPhone every day (with MyFitnessPal and every other app that writes to Health), and Hevy every few hours. Your own free GitHub account does the work, and your data is encrypted with a key only you have.</p>
+
+    <div id="auto-on" hidden>
+      <p class="state" id="auto-status"></p>
+      <div class="act wrap">
+        <button class="btn" id="a-sync" type="button">Sync now</button>
+        <button class="btn ghost" id="a-link" type="button">Copy link for another device</button>
+        <button class="btn danger" id="a-off" type="button">Disconnect</button>
+      </div>
+    </div>
+
+    <details id="auto-setup" open>
+      <summary class="setup-summary"><small id="auto-summary">Setup, about ten minutes</small></summary>
+      <ol class="steps">
+        <li><b>Make your copy.</b> Sign in to GitHub (free), then <a href="https://github.com/alyamiMohd/motus-sync/generate" target="_blank" rel="noopener">create your copy of motus-sync</a>. Name it <b>motus-sync</b> and keep it <b>Public</b>; your data will be encrypted.
+          <label class="field">Your copy <input id="a-repo" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="your-username/motus-sync"></label>
+        </li>
+        <li><b>Your key.</b> <button class="btn ghost small" id="a-key" type="button">Create my key</button>
+          <span class="keybox" id="a-keybox" hidden><code id="a-keytext"></code> <button class="more inline" id="a-copy" type="button">Copy</button></span>
+          <br>Add it to your copy as a secret named <b>MOTUS_KEY</b>: <a class="dep" id="l-secret" target="_blank" rel="noopener">open Secrets</a> → <b>New repository secret</b>. It's saved on this device too.</li>
+        <li><b>Hevy</b> (optional, Hevy Pro): add a second secret, <b>HEVY_API_KEY</b>, with your key from hevy.com → Settings → Developer.</li>
+        <li><b>Turn on GitHub Pages:</b> <a class="dep" id="l-pages" target="_blank" rel="noopener">open Pages</a> → Source: <b>GitHub Actions</b>.</li>
+        <li><b>First run:</b> <a class="dep" id="l-run" target="_blank" rel="noopener">open Motus sync</a> → <b>Run workflow</b>. Wait for the green tick, about a minute.</li>
+        <li><button class="btn small" id="a-check" type="button">Check connection</button></li>
+        <li><b>On your iPhone</b>, for Apple Health: <a class="dep" id="l-token" target="_blank" rel="noopener">create a phone token</a>. Under Repository access choose <b>Only select repositories</b> and pick your copy; the rest is filled in. Copy the token, then <a id="l-shortcut" href="shortcut.html">add the Motus Shortcut</a> and a daily automation.</li>
+      </ol>
+      <p class="note" id="a-hint">Type your copy's name in step 1 and the links light up.</p>
+    </details>
+    <p class="msg" id="m-auto" role="status"></p>
+  </section>
+
+  <h2 class="divider">Or import once</h2>
 
   <section class="app" id="apple" aria-labelledby="h-apple">
     <div class="app-head"><h2 id="h-apple">Apple Health</h2><span class="pill" data-src="apple"></span></div>
@@ -44,7 +79,7 @@
       <input class="key" id="k-hevy" type="password" autocomplete="off" spellcheck="false" placeholder="Hevy API key" aria-label="Hevy API key">
       <button class="btn" id="b-hevy" type="button">Connect</button>
     </div>
-    <label class="check"><input type="checkbox" id="r-hevy"> Keep the key on this device, to sync again with one tap</label>
+    <label class="check"><input type="checkbox" id="r-hevy"> Keep the key on this device and fetch new workouts each time I open Motus</label>
     <div class="act" id="saved-hevy" hidden>
       <button class="btn" id="s-hevy" type="button">Sync Hevy now</button>
       <button class="btn ghost" id="x-hevy" type="button">Forget key</button>
@@ -127,7 +162,7 @@
     </div>
     <p class="msg" id="m-mine" role="status"></p>
     <h2 id="privacy">Privacy</h2>
-    <p class="note">Motus has no accounts and no server. Your files are read by this page in your browser and saved in this browser's storage on this device. Nothing is uploaded, sold or shared, and there's no tracking or cookies. The pages are hosted on GitHub Pages, which, like any web host, sees your IP address when you load them. Clearing this site's data in your browser deletes everything here; another browser or device starts empty, so use a backup to move.</p>
+    <p class="note">Motus has no accounts and no server. Files you import are read by this page in your browser and saved in this browser's storage on this device; they aren't uploaded anywhere. With Automatic, your phone and Hevy send your numbers to your own GitHub copy; GitHub handles them while the job runs and keeps only a file encrypted with your key, which Motus opens here. Nothing is sold or shared, and there's no tracking or cookies. The pages are hosted on GitHub Pages, which, like any web host, sees your IP address when you load them. Clearing this site's data in your browser deletes everything here; another browser or device starts empty, so use a backup to move.</p>
   </section>
 </main>
 <script type="module" src="js/pages/connect.js"></script>
