@@ -2,7 +2,8 @@
 
 ## Prioritized
 - [x] **Deployed to Cloudflare** 2026-10-27: https://motus.motusapp.workers.dev (subdomain registered through the API after `wrangler deploy` couldn't take "motus"; owner chose "motusapp"). Redeploy with `npx wrangler deploy`.
-- [ ] **Resend** (owner's free account): API key as a secret. For codes to reach everyone: a domain, verified in Resend, and `EMAIL_FROM`.
+- [x] **Resend** key set 2026-10-27. Still to do for everyone else: a domain, verified in Resend, and `EMAIL_FROM` in `wrangler.jsonc`.
+- [ ] **Owner's first real sign-in** with the Resend account's email (not seen yet).
 - [ ] **Build the Motus Shortcut** on the owner's iPhone (public/shortcut.html), run Finish from Connect, check Home against the Health app; then share its iCloud link → `SHORTCUT_URL` in `public/js/account.js`.
 - [ ] **Hevy with a real key** on the deployed app (only tested against a fake Hevy and Hevy's real 401).
 - [ ] Decide what happens to `alyamiMohd/motus-sync` (obsolete; archive or delete, owner's call).

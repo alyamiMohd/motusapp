@@ -38,3 +38,8 @@
 **User asked:** "Try again" (continue); logged in to Cloudflare through `wrangler login` in their browser; chose `motusapp` as the account's workers.dev name.
 **Claude did:** created D1 `motus` and applied the schema remotely; registered the subdomain through Cloudflare's API with wrangler's login token (wrangler 4 has no command for it); deployed; set `HEVY_SECRET` and `CODE_PEPPER` (generated and piped, never shown); fixed HEAD requests being refused by the Origin check; the GitHub Pages copy's Connect page now links to the live app.
 **Outcome:** live at https://motus.motusapp.workers.dev; sign-in waits for `RESEND_API_KEY`. A test sign-in request for nobody@example.com left an expiring code hash in production (cleared by the cron).
+
+## 2026-10-27 (UTC+03) | Session 1, continued | Resend
+**User asked:** a step-by-step for Resend; then "The terminal said Success! Uploaded secret RESEND_API_KEY. Check that sign-in works."
+**Claude did:** opened a terminal tab at `wrangler secret put RESEND_API_KEY` (PowerShell blocks `npx.ps1`, so `npx.cmd`; the terminal needed its own Cloudflare login, which the owner approved). Confirmed the secret exists; the server now logs Resend's status and error type (never the address) and explains the testing-mode restriction; a request for a made-up address got Resend's 422 validation error, so the key authenticates.
+**Not verified:** a code arriving in the owner's inbox (only the owner can see it).

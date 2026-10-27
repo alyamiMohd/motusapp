@@ -23,7 +23,13 @@ async function sendCode(env, email, code) {
       text: `Your Motus sign-in code is ${code}\n\nIt works for ${CODE_MINUTES} minutes. If you didn't ask for it, you can ignore this email.\n`,
     }),
   });
-  if (!res.ok) throw new Error("Couldn't send the email. Try again in a minute.");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    console.log("resend refused:", res.status, err.name || "");   // status and error type only: never the address
+    throw new Error(res.status === 403 && err.name === "validation_error"
+      ? "Codes can't be sent to this address yet. Use the email the Motus owner signed up to Resend with."
+      : "Couldn't send the email. Try again in a minute.");
+  }
 }
 
 // POST /api/auth/start { email }: always the same answer, so it never tells whether someone has an account
