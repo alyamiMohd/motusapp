@@ -1,7 +1,7 @@
 # RESUME: read this first
 
 **Project:** Motus (public app): a fitness dashboard anyone can use. Sign in with an emailed code, connect Hevy and Apple Health once, and it stays up to date by itself; files can also be imported; demo data until then.
-**Repo:** https://github.com/alyamiMohd/motusapp (public, `main`). Pages without accounts: https://alyamimohd.github.io/motusapp/ . The full app (with accounts) runs on Cloudflare once deployed (not yet).
+**Repo:** https://github.com/alyamiMohd/motusapp (public, `main`). **Live (with accounts): https://motus.motusapp.workers.dev** (Cloudflare: account subdomain `motusapp`, Worker `motus`, D1 `motus` id 4757ecc4-340b-41d4-a641-1f742da8af25, cron every 30 min). Pages without accounts: https://alyamimohd.github.io/motusapp/ (its Connect page links to the live app).
 **Last updated:** 2026-10-27 (UTC+03, Riyadh)
 **Obsolete:** `alyamiMohd/motus-sync` (template for the earlier GitHub-copy sync, rejected as onboarding); its copies would fail now. Ask the owner before archiving/deleting it.
 
@@ -15,13 +15,13 @@
 
 ## Current status
 - Built and tested locally (2026-10-27): email-code sign-in, sessions, Connect Hevy (opens Hevy's key page, Paste key, server checks and syncs in the background via /v1/workouts/events), Connect Apple Health (Shortcut token, upload endpoint, return to Connect), imports saved to the account, sign out/in, delete account, cron. 173 automated checks pass (45 run the server on a real SQLite database); the whole flow was also run on `wrangler dev` in the Browser pane, with the Shortcut's upload simulated by curl.
-- **Not deployed:** needs the owner's Cloudflare account (`npx wrangler login`), then the steps in README → "First deploy to Cloudflare"; a Resend account for the code emails (without a verified domain, codes only reach the Resend account's own address).
+- **Deployed 2026-10-27** after the owner logged in to Cloudflare: database created and tables applied, `HEVY_SECRET` and `CODE_PEPPER` set (random, never displayed), Worker live. Checked live: pages load, signed-out and cross-site requests refused, fake Shortcut token refused. **Sign-in can't send codes yet: `RESEND_API_KEY` is missing** (the owner creates a free Resend account and sets the key; without a verified domain, codes only reach the Resend account's own address).
 - **The Motus Shortcut isn't built yet:** only the owner can build it on an iPhone (public/shortcut.html); then its iCloud link goes into `SHORTCUT_URL` in `public/js/account.js`.
 - Hevy with a real key and the real Shortcut on a real iPhone are not tested.
 - Cloudflare free plan: 10 ms CPU per request/cron; Hevy syncs are done in small steps for that reason. With real users, the $5/month Workers plan removes the risk.
 
 ## Next action
-Owner: create a free Cloudflare account and a free Resend account, then say so; Claude runs `npx wrangler login` (the owner clicks Allow in the browser), creates the database, sets the secrets (Resend key: the owner pastes it into the terminal prompt themselves) and deploys. Then the owner builds the Shortcut on their iPhone and tries the whole flow.
+Owner: create a free Resend account, create an API key, and run `npx wrangler secret put RESEND_API_KEY` in the motusapp folder (pasting the key at the prompt; never in chat). Then sign in at https://motus.motusapp.workers.dev/connect with the Resend account's email, connect Hevy with the real key, build the Shortcut on the iPhone and tap Finish.
 
 ## Open questions waiting on the owner
 - Archive or delete `alyamiMohd/motus-sync`? Default: leave it until asked.

@@ -2,7 +2,7 @@
 
 Motus is a public fitness dashboard: people see demo data, sign in with an emailed code, and connect Hevy (API key, synced
 in the background) and Apple Health (the Motus Shortcut's daily upload) once; files can also be imported. Owner: GitHub `alyamiMohd`.
-Until Cloudflare is deployed, https://alyamimohd.github.io/motusapp/ serves the pages without accounts.
+Live: https://motus.motusapp.workers.dev (Cloudflare account subdomain `motusapp`, Worker `motus`, D1 `motus`). https://alyamimohd.github.io/motusapp/ serves the pages without accounts.
 It grew out of the owner's personal dashboard (`alyamiMohd/motus`, still running separately with their own data and pipeline).
 Plain HTML/CSS/ES modules in `public/` (no build); accounts on a Cloudflare Worker + D1 (`worker/`, deployed with `wrangler`, the only dev dependency).
 

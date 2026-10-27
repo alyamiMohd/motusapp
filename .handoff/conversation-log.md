@@ -33,3 +33,8 @@
 **Outcome:** 173 checks pass; the full flow works on `wrangler dev`. Not deployed (needs the owner's Cloudflare and Resend accounts); Shortcut not built yet (owner, on iPhone).
 **Errors & fixes:** the preview tool only reads Selenerie's launch config, so `wrangler dev` was started from Bash; npm warned that workerd's install script wasn't approved, but `wrangler dev` ran fine.
 **User feedback / corrections:** the GitHub-copy onboarding was rejected as far too complicated (quoted above). The template repo `motus-sync` is now obsolete.
+
+## 2026-10-27 (UTC+03) | Session 1, continued | deployed to Cloudflare
+**User asked:** "Try again" (continue); logged in to Cloudflare through `wrangler login` in their browser; chose `motusapp` as the account's workers.dev name.
+**Claude did:** created D1 `motus` and applied the schema remotely; registered the subdomain through Cloudflare's API with wrangler's login token (wrangler 4 has no command for it); deployed; set `HEVY_SECRET` and `CODE_PEPPER` (generated and piped, never shown); fixed HEAD requests being refused by the Origin check; the GitHub Pages copy's Connect page now links to the live app.
+**Outcome:** live at https://motus.motusapp.workers.dev; sign-in waits for `RESEND_API_KEY`. A test sign-in request for nobody@example.com left an expiring code hash in production (cleared by the cron).

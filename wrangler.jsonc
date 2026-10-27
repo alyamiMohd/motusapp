@@ -6,8 +6,8 @@
   "compatibility_date": "2026-10-20",
   "assets": { "directory": "./public", "binding": "ASSETS" },
   "d1_databases": [
-    // database_id comes from `npx wrangler d1 create motus` (the first deploy); any value works for local runs
-    { "binding": "DB", "database_name": "motus", "database_id": "00000000-0000-0000-0000-000000000000" }
+    // created with `npx wrangler d1 create motus` on 2026-10-27
+    { "binding": "DB", "database_name": "motus", "database_id": "4757ecc4-340b-41d4-a641-1f742da8af25" }
   ],
   "triggers": { "crons": ["*/30 * * * *"] },
   "vars": {

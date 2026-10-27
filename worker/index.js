@@ -39,7 +39,7 @@ async function api(req, env, url) {
   if (method === "POST" && path === "/api/upload") return upload(req, env);
 
   // Everything else runs on the session cookie, so changes must come from Motus's own pages.
-  if (method !== "GET" && req.headers.get("origin") !== url.origin) return fail(403, "Not allowed from another site.");
+  if (method !== "GET" && method !== "HEAD" && req.headers.get("origin") !== url.origin) return fail(403, "Not allowed from another site.");
   if (method === "POST" && path === "/api/auth/start") return start(req, env, ip);
   if (method === "POST" && path === "/api/auth/verify") return verify(req, env, ip);
   if (method === "POST" && path === "/api/auth/logout") return logout(req, env);

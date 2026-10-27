@@ -1,7 +1,7 @@
 # Next steps (as of 2026-10-27)
 
 ## Prioritized
-- [ ] **Deploy to Cloudflare** (blocked on the owner's free Cloudflare account): `npx wrangler login` → `npx wrangler d1 create motus` (put the id in `wrangler.jsonc`) → `npx wrangler d1 execute motus --remote --file worker/schema.sql` → secrets `HEVY_SECRET`, `CODE_PEPPER`, `RESEND_API_KEY` → `npx wrangler deploy`. Then point GitHub Pages' index to the new address (or keep both).
+- [x] **Deployed to Cloudflare** 2026-10-27: https://motus.motusapp.workers.dev (subdomain registered through the API after `wrangler deploy` couldn't take "motus"; owner chose "motusapp"). Redeploy with `npx wrangler deploy`.
 - [ ] **Resend** (owner's free account): API key as a secret. For codes to reach everyone: a domain, verified in Resend, and `EMAIL_FROM`.
 - [ ] **Build the Motus Shortcut** on the owner's iPhone (public/shortcut.html), run Finish from Connect, check Home against the Health app; then share its iCloud link → `SHORTCUT_URL` in `public/js/account.js`.
 - [ ] **Hevy with a real key** on the deployed app (only tested against a fake Hevy and Hevy's real 401).

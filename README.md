@@ -2,6 +2,8 @@
 
 A quiet dashboard for your sleep, steps, food, weight and workouts.
 
+**Open it:** https://motus.motusapp.workers.dev (the version without accounts: https://alyamimohd.github.io/motusapp/)
+
 - **Connect once, then it keeps itself up to date.** Sign in with your email (a 6-digit code, no password), tap **Connect Hevy** and **Connect Apple Health**. Workouts sync in the background; your iPhone sends the day's Health numbers every morning. MyFitnessPal comes along through Apple Health.
 - **Or import a file**: Apple Health export, Hevy or Strong CSV, MyFitnessPal export, any app through a spreadsheet, or a day by hand. Without an account, imports stay on your device.
 - **Demo first.** Until you connect something, Motus shows five months of made-up data so you can look around.
