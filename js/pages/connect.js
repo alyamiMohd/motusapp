@@ -256,4 +256,5 @@ initNav("connect", refresh);
 hevyKeyUI();
 refresh();
 fromLink();
+window.addEventListener("hashchange", fromLink);   // a link pasted while the page is already open
 autoRefresh().then(changed => { if (changed) refresh(); });

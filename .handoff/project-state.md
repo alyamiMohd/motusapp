@@ -52,3 +52,26 @@ None. The app has no secrets. A visitor's Hevy key lives only in their own brows
 - Storage: `localStorage` (about 5 MB). Years of data fit; an extremely large history might not, in which case the page says it couldn't save.
 - The origin `alyamimohd.github.io` is shared with the owner's other Pages sites (`motus`), so they share browser storage; keys are prefixed `motusapp-` so nothing collides.
 - Large Apple exports on older phones may be slow; not tested on a real iPhone.
+
+## Automatic sync (added 2026-10-27)
+```
+iPhone: Motus Shortcut (Health Exporter "Export Health Data" → Base64 → POST /repos/<copy>/dispatches, event_type "health")
+Hevy API ◄─ every 3 h
+        └► person's copy of alyamiMohd/motus-sync: .github/workflows/motus-sync.yml
+             checks out alyamiMohd/motusapp@main → node motus/sync/run.mjs out
+             reads previous motus-data.enc from its own Pages, merges, encrypts (MOTUS_KEY), deploys Pages
+Motus (any page) ── autoRefresh() ── fetch https://<user>.github.io/<copy>/motus-data.enc ── unseal with the key in localStorage
+```
+| Piece | Where |
+|---|---|
+| Key, seal/unseal (AES-256-GCM, gzip, random IV), sync file → source, `pullSync`, `autoRefresh` (also refetches Hevy every 30 min for keys saved in the browser) | `js/sync.js` |
+| The job: previous state (404 = first run; can't open = stop), upload from `GITHUB_EVENT_PATH` (`health_b64`, `health`, `days`), Hevy, write `out/` | `sync/run.mjs` |
+| Template repo files (pushed to `alyamiMohd/motus-sync` by hand when they change) | `sync/template/` |
+| Setup guide and device link (`connect.html#sync=<repo>:<key>`) | `connect.html`, `js/pages/connect.js` (`SHORTCUT_URL` empty until the owner shares the Shortcut) |
+| Shortcut instructions (fills in the person's copy) | `shortcut.html`, `js/pages/shortcut.js` |
+| Tests (34) | `tests/test_sync.mjs` |
+
+Browser storage keys: `motusapp-data-v1`, `motusapp-prefs`, `motusapp-sync` ({repo, url, key, last, updated, hevyError}), `motusapp-sync-draft` (during setup), `motusapp-hevy-key`, `motusapp-hevy-last`.
+Secrets in each copy: `MOTUS_KEY` (required), `HEVY_API_KEY` (optional). Phone token: fine-grained, Contents read/write, that copy only, ≤ 366 days, stored only in the Shortcut.
+The template repo itself has a test `MOTUS_KEY` and Pages on, for live tests; scheduled runs are skipped there (`if:` in the workflow).
+Verified live 2026-10-27 with made-up data: dispatch → run → Pages → app showed the exact numbers. Not verified: a real Shortcut, Hevy inside the job, the 60-day schedule keep-alive.

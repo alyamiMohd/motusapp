@@ -6,8 +6,12 @@ It grew out of the owner's personal dashboard (`alyamiMohd/motus`, still running
 Plain HTML/CSS/ES modules, no build, no dependencies, hosted on GitHub Pages from `main`.
 
 ## Hard rules
-- **People's data never leaves their device.** No server, backend, analytics, cookies or third-party scripts without the owner's explicit yes.
-  The only network call besides the site itself is the optional Hevy sync to `api.hevyapp.com` (kept in the CSP `connect-src`).
+- **No Motus server; people's data stays theirs.** No backend, analytics, cookies or third-party scripts without the owner's explicit yes.
+  The app talks only to `api.hevyapp.com` (optional Hevy) and `*.github.io` (sync files), both in the CSP `connect-src`.
+- **Automatic sync runs in each person's own GitHub copy** (template `alyamiMohd/motus-sync`, job `sync/run.mjs`). Only the
+  AES-256-GCM file encrypted with their `MOTUS_KEY` is stored or published. Their logs are public: **never print data, and
+  never pass the phone's upload through `env`** (GitHub prints a step's env); it is read from `GITHUB_EVENT_PATH`.
+  `tests/test_sync.mjs` guards both. Changes to `sync/template/` must also be pushed to `alyamiMohd/motus-sync`.
 - **The repo is public.** Never commit real exports, the owner's data from `motus`, keys, tokens or `.env`. Test fixtures are made up.
 - **Escape everything imported** (exercise and workout names come from files): use `esc()` from `js/core.js` before `innerHTML`.
 - **Minimalism is the point** (owner's words). Plain, short wording from the visitor's side of the screen. No clutter.
