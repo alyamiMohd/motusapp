@@ -56,3 +56,8 @@
 **Shortcut link:** its public metadata names it "Health to Drive" (not "Motus"), so it is not the Motus Shortcut the Connect page's Finish step runs by name; not put into `SHORTCUT_URL`. Asked the owner what it is.
 **Blocked:** `wrangler deploy` and reading the production DB were refused by the session's permission mode; waiting on the owner's OK to deploy 17389fd.
 **User feedback / corrections:** quoted above (don't link the owner's accounts; Claude tests first).
+
+## 2026-10-27 20:55 (UTC+03) | Session 2, continued | deployed 17389fd
+**User asked:** "Yes, deploy 17389fd to the live site and check it." then "I clicked Allow on the Cloudflare page."
+**Claude did:** Claude's Bash has no Cloudflare login, so ran `npx.cmd wrangler deploy` in the owner's terminal tab (first attempt opened in the wrong folder and was closed); wrangler's login had expired, the owner clicked Allow; deployed (version 5b044556). Checked live: all pages 200; frame-ancestors/X-Frame-Options/nosniff/no-referrer/HSTS/Permissions-Policy headers present; JS/CSS/HTML identical to the repo; signed-out, cross-site and fake-token requests refused; Workouts page loads with no console errors.
+**Outcome:** live site runs 17389fd. Not tested: real Hevy key, real iPhone Shortcut.
