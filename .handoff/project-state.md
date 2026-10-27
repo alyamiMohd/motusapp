@@ -54,5 +54,8 @@ Production secrets via `npx wrangler secret put`: `HEVY_SECRET` (32 random bytes
 - `npm test`: 173 checks pass.
 - `wrangler dev` in the Browser pane: sign-in with a printed code; HttpOnly cookie; Shortcut token + simulated upload (curl) → Home shows the numbers (sleep 7.4 h / 7.3 h as expected); Connect Hevy opens Hevy's key page, a fake key gets Hevy's real refusal; a CSV import while signed in is saved to the account; sign out clears the device, sign in brings it all back; the cron runs.
 - Live (2026-10-27): deployed at https://motus.motusapp.workers.dev; secrets HEVY_SECRET, CODE_PEPPER, RESEND_API_KEY set; the owner signed in with a real emailed code.
+- 2026-10-27 evening, full end-to-end run by Claude on `wrangler dev` with `tests/mock_hevy.mjs` (40 made-up workouts): sign-in with printed code; wrong Hevy key → clear message; good key → 40 workouts in D1, key encrypted, Workouts page filled; Shortcut uploads via curl (normal, Arabic digits/units, duplicate iPhone+Watch sleep deduped; no/wrong token and junk refused); Home updates within ~3 s of opening; cron run incremental, no error; sign out clears device, sign in restores; delete account removes every row and kills the Shortcut token; all pages 320px no sideways scroll, light + dark. `npm test`: 174 checks.
+- Live: pages 200, deployed files match the repo, signed-out and cross-site requests refused.
+- Windows note: local D1 needs `--persist-to <short path>` here (scratch path too long → SQLITE_CANTOPEN).
 ## Not verified
 Hevy with a real key; the real Shortcut on an iPhone (Health permission, automation, Arabic-language phone); free-plan CPU limits under real load.

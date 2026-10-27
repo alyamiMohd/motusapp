@@ -34,6 +34,9 @@ Carried over from the `motus` handoff (sessions of 2026-10-21 to 2026-10-24) and
 - Answers multiple-choice questions readily (chose GitHub Actions, then email code, then Shortcut + accounts, then the `motusapp` address); short messages like "Try again" mean "carry on with the work".
 - 2026-10-26 "remove 'My' integraitons, as I will be publishing this to the internet, and make people use this application, so just add some dummy data to demonstrate the application"; "This app will be published publicly, and for public use so make it for that".
 
+- 2026-10-27 "No I don't want to link my stuff ... what I'm trying to do is make that production level for people to start using it": don't ask the owner to connect their own Hevy/Health for testing. "just test everything by you, then I will test it after you have verified its working": Claude tests end to end first (local server + mock Hevy + simulated uploads), the owner tests after.
+- 2026-10-27 "if you are asking for an email then you have to create users in motus": every sign-in field must clearly mean a Motus account. Domain for email: "I will buy domain later on".
+
 ## Environment
 - Windows 11 laptop, Claude desktop app (Git Bash + PowerShell), iPhone with Shortcuts and Apple Health. Timezone Asia/Riyadh (UTC+3). Python 3.10 and Node 24 on this laptop.
 - Accounts (names only): GitHub `alyamiMohd` (`gh` signed in), Hevy Pro, MyFitnessPal, the Health Exporter iPhone app, Cloudflare (free; workers.dev subdomain `motusapp`), Resend (free; testing mode, no domain yet).

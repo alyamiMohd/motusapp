@@ -4,7 +4,9 @@
 - [x] **Deployed to Cloudflare** 2026-10-27: https://motus.motusapp.workers.dev (subdomain registered through the API after `wrangler deploy` couldn't take "motus"; owner chose "motusapp"). Redeploy with `npx wrangler deploy`.
 - [x] **Resend** key set 2026-10-27. Still to do for everyone else: a domain, verified in Resend, and `EMAIL_FROM` in `wrangler.jsonc`.
 - [x] **Owner's first real sign-in** worked (2026-10-27).
-- [ ] **Connect Hevy with the real key** (in progress): then confirm workouts on Workouts/Home and in D1 (counts only); watch `wrangler tail` for CPU-limit errors.
+- [x] Full flow verified locally by Claude with a mock Hevy and simulated uploads (2026-10-27); owner does not want their own accounts used for testing.
+- [ ] **Deploy 17389fd** (Hevy 404 fix, security headers) after the owner's OK; then the owner tests on the live app.
+- [ ] Background sync covers 3 accounts per 30-min run: fine for a few users, about every 8 h at 50 users. Raise SYNC_USERS_PER_RUN or move to Workers Paid when real users arrive.
 - [ ] **Build the Motus Shortcut** on the owner's iPhone (public/shortcut.html), run Finish from Connect, check Home against the Health app; then share its iCloud link → `SHORTCUT_URL` in `public/js/account.js`.
 - [ ] Decide what happens to `alyamiMohd/motus-sync` (obsolete; archive or delete, owner's call).
 - [ ] Real exports for the file imports; check menu paths in Hevy/Strong/MyFitnessPal.

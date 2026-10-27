@@ -2,7 +2,7 @@
 
 **Project:** Motus (public app): a fitness dashboard anyone can use. Sign in with an emailed code, connect Hevy and Apple Health once, and it stays up to date by itself; files can also be imported; demo data until then.
 **Repo:** https://github.com/alyamiMohd/motusapp (public, `main`). **Live (with accounts): https://motus.motusapp.workers.dev** (Cloudflare: account subdomain `motusapp`, Worker `motus`, D1 `motus` id 4757ecc4-340b-41d4-a641-1f742da8af25, cron every 30 min). Pages without accounts: https://alyamimohd.github.io/motusapp/ (its Connect page links to the live app).
-**Last updated:** 2026-10-27 19:03 (UTC+03, Riyadh) · last code commit `aaa13e1`
+**Last updated:** 2026-10-27 20:40 (UTC+03, Riyadh) · last code commit `17389fd` (pushed, NOT yet deployed to Cloudflare)
 **Obsolete:** `alyamiMohd/motus-sync` (template for the earlier GitHub-copy sync, rejected as onboarding); its copies would fail now. Ask the owner before archiving/deleting it.
 
 ## Instructions for Claude
@@ -21,11 +21,11 @@
 - Cloudflare free plan: 10 ms CPU per request/cron; Hevy syncs are done in small steps for that reason. With real users, the $5/month Workers plan removes the risk.
 
 ## Next action
-**Connect Hevy on the live app** (in progress when this was saved): Connect → Connect Hevy → copy the API key on Hevy's page → Paste key. Then check on the server side: `npx wrangler d1 execute motus --remote --command "SELECT COUNT(*) FROM workouts"` (counts only) and `npx wrangler tail motus` for errors (watch for CPU-limit errors on the free plan during the first full import). After that: at https://motus.motusapp.workers.dev/connect with the Resend account's email, connect Hevy with the real key, build the Shortcut on the iPhone and tap Finish.
+**Deploy 17389fd** (`npx wrangler deploy`; needs the owner's OK in this permission mode), then check live headers. The whole flow was verified locally by Claude on 2026-10-27 (no owner accounts used, per the owner). Then the owner tests. Open: the iCloud link the owner sent is a Shortcut named "Health to Drive", not "Motus"; ask what it is before using it.
 
 ## Open questions waiting on the owner
 - Archive or delete `alyamiMohd/motus-sync`? Default: leave it until asked.
 - A domain (for code emails to everyone and a nice address). Licence. Keep `.handoff/` public.
 
 ## Last thing in progress
-Accounts are live (deployed, Resend working, owner signed in). Owner's last message: "The code arrived and I'm signed in. Next, let's connect Hevy." Claude gave the steps and started `wrangler tail` (background) to watch; no Hevy request had reached the server yet when the owner ran `/handoff`.
+Session 2: owner said not to connect their own accounts; Claude tested everything locally (mock Hevy, simulated uploads) and fixed two issues (D-020, D-021). Owner's last message: "just test everything by you, then I will test it after you have verified its working." Waiting: OK to deploy; what the "Health to Drive" Shortcut link is for.
