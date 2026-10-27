@@ -1,9 +1,9 @@
 // Week-to-date averages, week starts (Sunday or Monday), weekly history, workout scoring and the demo.
 // Run from the repo root:  node tests/test_core.mjs
 import { check, near, section, finish } from "./harness.mjs";
-const { weekStart, add, weekAvg } = await import("../js/core.js");
-const { buildWeeks, summarizeWorkouts, sessionScore, workoutScore, exerciseStats, overallRating } = await import("../js/stats.js");
-const { generateDemo } = await import("../js/demo.js");
+const { weekStart, add, weekAvg } = await import("../public/js/core.js");
+const { buildWeeks, summarizeWorkouts, sessionScore, workoutScore, exerciseStats, overallRating } = await import("../public/js/stats.js");
+const { generateDemo } = await import("../public/js/demo.js");
 
 // Sun 18 Oct .. Sat 24 Oct 2026. Today's values are deliberately tiny ("first few steps of the day").
 const days = {

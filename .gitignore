@@ -17,3 +17,7 @@ node_modules/
 Thumbs.db
 *.log
 .claude/settings.local.json
+
+# Cloudflare local state and secrets
+.dev.vars
+.wrangler/

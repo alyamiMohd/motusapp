@@ -1,7 +1,7 @@
 // The on-device store: demo when empty, which source wins, full vs partial imports, cleaning, backup and restore.
 // Run from the repo root:  node tests/test_store.mjs
 import { check, section, finish } from "./harness.mjs";
-const store = await import("../js/store.js");
+const store = await import("../public/js/store.js");
 const { getData, putSource, removeSource, clearAll, backup, restore, clean, load } = store;
 const T = "2026-10-26";
 

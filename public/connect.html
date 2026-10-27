@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="description" content="Connect Hevy and Apple Health once and Motus keeps itself up to date. Or import a file from Apple Health, Hevy, Strong, MyFitnessPal or a spreadsheet.">
+<title>Motus · Connect</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="connect">
+  <h1>Connect your apps</h1>
+  <p class="lead">Connect once and Motus keeps itself up to date.</p>
+
+  <section class="account" id="account" aria-labelledby="h-account">
+    <div id="acct-out" hidden>
+      <h2 id="h-account">Sign in</h2>
+      <p class="what">With your email. There's no password: we send you a 6-digit code.</p>
+      <div class="act">
+        <input class="key" id="a-email" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com" aria-label="Email">
+        <button class="btn" id="a-send" type="button">Send code</button>
+      </div>
+      <div class="act" id="a-codebox" hidden>
+        <input class="key" id="a-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" aria-label="The code from the email">
+        <button class="btn" id="a-verify" type="button">Sign in</button>
+      </div>
+      <p class="msg" id="m-account" role="status"></p>
+    </div>
+    <p class="state" id="acct-in" hidden>Signed in as <b id="a-who"></b> · <button class="more inline" id="a-out" type="button">Sign out</button></p>
+    <p class="note" id="acct-none" hidden>Connected apps need a Motus account, which this address doesn't offer. You can still import files below; they stay on this device.</p>
+  </section>
+
+  <section class="app" id="live-hevy" aria-labelledby="h-live-hevy">
+    <div class="app-head"><h2 id="h-live-hevy">Hevy</h2><span class="pill" id="p-hevy"></span></div>
+    <p class="what">Your workouts, ratings and estimated 1RM, kept up to date by themselves. Needs Hevy Pro.</p>
+    <div id="hevy-off">
+      <button class="btn" id="b-hevy" type="button">Connect Hevy</button>
+      <div id="hevy-paste" hidden>
+        <ol class="steps">
+          <li>On the Hevy page that just opened, copy your <b>API key</b> (if there isn't one, create it).</li>
+          <li>Come back here and tap <b>Paste key</b>.</li>
+        </ol>
+        <div class="act">
+          <button class="btn" id="b-paste" type="button">Paste key</button>
+          <input class="key" id="k-hevy" type="password" autocomplete="off" spellcheck="false" placeholder="or paste it here" aria-label="Hevy API key">
+        </div>
+      </div>
+    </div>
+    <div id="hevy-on" hidden>
+      <p class="state" id="s-hevy"></p>
+      <div class="act"><button class="btn ghost" id="b-hevy-sync" type="button">Sync now</button><button class="btn danger" id="b-hevy-off" type="button">Disconnect</button></div>
+    </div>
+    <p class="msg" id="m-live-hevy" role="status"></p>
+  </section>
+
+  <section class="app" id="live-health" aria-labelledby="h-live-health">
+    <div class="app-head"><h2 id="h-live-health">Apple Health</h2><span class="pill" id="p-health"></span></div>
+    <p class="what">Steps, sleep, weight and food energy from your iPhone, every day. MyFitnessPal and other apps that write to Health come with it.</p>
+    <div id="health-off">
+      <p class="note" id="h-elsewhere" hidden>Open this page on your iPhone to connect Apple Health.</p>
+      <ol class="steps big" id="h-steps">
+        <li><a class="btn" id="b-shortcut" href="shortcut.html">Add the Motus Shortcut</a><br><small>Tap <b>Add Shortcut</b>, then come back here.</small></li>
+        <li><button class="btn" id="b-finish" type="button">Finish</button><br><small>Your iPhone asks to let Motus read Health: turn everything on and tap <b>Allow</b>.</small></li>
+        <li><b>Make it daily.</b> <small>iOS asks you to do this one yourself: in <b>Shortcuts</b> → <b>Automation</b> → <b>+</b> → <b>Time of Day</b> → a morning time, <b>Daily</b> → <b>Run Immediately</b> → <b>Next</b> → <b>Motus</b>.</small></li>
+      </ol>
+    </div>
+    <div id="health-on" hidden>
+      <p class="state" id="s-health"></p>
+      <div class="act"><button class="btn ghost" id="b-health-again" type="button">Set up again</button><button class="btn danger" id="b-health-off" type="button">Disconnect</button></div>
+    </div>
+    <p class="msg" id="m-live-health" role="status"></p>
+  </section>
+
+  <section class="app" aria-labelledby="h-live-mfp">
+    <h2 id="h-live-mfp">MyFitnessPal</h2>
+    <p class="what">Comes in through Apple Health: in MyFitnessPal's settings, connect Apple Health and let it write your nutrition. Then connect Apple Health above.</p>
+  </section>
+
+  <h2 class="divider">Or import a file</h2>
+  <details class="imports">
+    <summary><small>Apple Health export, Hevy or Strong CSV, MyFitnessPal export, a spreadsheet, or a day by hand</small></summary>
+
+  <section class="app" id="apple" aria-labelledby="h-apple">
+    <div class="app-head"><h2 id="h-apple">Apple Health export</h2><span class="pill" data-src="apple"></span></div>
+    <p class="what">Your whole history at once: steps, sleep, food energy and weight.</p>
+    <ol>
+      <li>On your iPhone, open <b>Health</b> and tap your picture at the top right.</li>
+      <li>Tap <b>Export All Health Data</b>, then <b>Export</b>. It can take a few minutes.</li>
+      <li>Choose <b>Save to Files</b>.</li>
+      <li>Come back here and choose that <b>export.zip</b>.</li>
+    </ol>
+    <div class="act">
+      <label class="btn file"><input type="file" id="f-apple" accept=".zip,.xml,.json,application/zip,text/xml,application/json">Choose export.zip</label>
+    </div>
+    <p class="msg" id="m-apple" role="status"></p>
+    <p class="note">Big exports take a minute and are read on your phone. JSON files from the Health Exporter app work too.</p>
+  </section>
+
+  <section class="app" id="hevy" aria-labelledby="h-hevy">
+    <div class="app-head"><h2 id="h-hevy">Hevy export</h2><span class="pill" data-src="hevy"></span></div>
+    <p class="what">For any Hevy account, Pro or not.</p>
+    <ol>
+      <li>In the Hevy app: <b>Profile → Settings → Export &amp; Import Data → Export Workouts</b>.</li>
+      <li>Save the CSV, then choose it here.</li>
+    </ol>
+    <div class="act">
+      <label class="btn file"><input type="file" id="f-hevy" accept=".csv,text/csv">Choose Hevy CSV</label>
+    </div>
+    <p class="msg" id="m-hevy" role="status"></p>
+  </section>
+
+  <section class="app" id="strong" aria-labelledby="h-strong">
+    <div class="app-head"><h2 id="h-strong">Strong</h2><span class="pill" data-src="strong"></span></div>
+    <p class="what">Workouts, estimated 1RM and ratings. Strong has no way to connect directly, so it comes as a file.</p>
+    <ol>
+      <li>In Strong: <b>Settings → Export Strong Data</b>.</li>
+      <li>Save the CSV, then choose it here.</li>
+    </ol>
+    <div class="act">
+      <label class="btn file"><input type="file" id="f-strong" accept=".csv,text/csv">Choose Strong CSV</label>
+      <label class="unit">weights in <select id="u-strong" aria-label="Weight unit in the Strong file"><option value="kg">kg</option><option value="lb">lb</option></select></label>
+    </div>
+    <p class="msg" id="m-strong" role="status"></p>
+    <p class="note">Most Strong files say their unit; this is used only when they don't.</p>
+  </section>
+
+  <section class="app" id="mfp" aria-labelledby="h-mfp">
+    <div class="app-head"><h2 id="h-mfp">MyFitnessPal export</h2><span class="pill" data-src="mfp"></span></div>
+    <p class="what">Calories eaten and weight, from MyFitnessPal Premium's data export.</p>
+    <ol>
+      <li>Ask for your data export on <b>myfitnesspal.com</b> (Settings → Export data). It arrives as a zip.</li>
+      <li>Choose the zip here, or the Nutrition Summary and Measurement Summary files inside it.</li>
+    </ol>
+    <div class="act">
+      <label class="btn file"><input type="file" id="f-mfp" accept=".zip,.csv,application/zip,text/csv" multiple>Choose zip or CSVs</label>
+      <label class="unit">weight in <select id="u-mfp" aria-label="Weight unit in the MyFitnessPal file"><option value="kg">kg</option><option value="lb">lb</option></select></label>
+    </div>
+    <p class="msg" id="m-mfp" role="status"></p>
+  </section>
+
+  <section class="app" id="csv" aria-labelledby="h-csv">
+    <div class="app-head"><h2 id="h-csv">Any other app</h2><span class="pill" data-src="csv"></span></div>
+    <p class="what">Google Fit, Health Connect, Fitbit, Garmin, Samsung Health, Oura, Withings… There's no direct connection for these yet. Put your daily numbers in a spreadsheet, one row per day, and save it as CSV.</p>
+    <div class="act">
+      <button class="btn ghost" id="t-csv" type="button">Download template</button>
+      <label class="btn file"><input type="file" id="f-csv" accept=".csv,text/csv">Choose CSV</label>
+      <label class="unit">weight in <select id="u-csv" aria-label="Weight unit when the column is just called weight"><option value="kg">kg</option><option value="lb">lb</option></select></label>
+    </div>
+    <p class="msg" id="m-csv" role="status"></p>
+    <p class="note">Columns: date (like 2026-10-25), sleep_hours, steps, calories, weight_kg or weight_lb, workouts, workout_minutes. Leave out what you don't track.</p>
+  </section>
+
+  <section class="app" id="manual" aria-labelledby="h-manual">
+    <div class="app-head"><h2 id="h-manual">Enter by hand</h2><span class="pill" data-src="manual"></span></div>
+    <p class="what">Add or fix a single day. What you type here wins over everything else.</p>
+    <div class="form" id="hand">
+      <label>Date <input type="date" id="h-date"></label>
+      <label>Sleep (hours) <input type="number" id="h-sleep_hours" inputmode="decimal" min="0" max="24" step="0.1"></label>
+      <label>Steps <input type="number" id="h-steps" inputmode="numeric" min="0" step="1"></label>
+      <label>Calories eaten <input type="number" id="h-calories" inputmode="numeric" min="0" step="1"></label>
+      <label><span>Weight (<span id="h-unit">kg</span>)</span> <input type="number" id="h-weight" inputmode="decimal" min="0" step="0.1"></label>
+    </div>
+    <div class="act"><button class="btn" id="b-manual" type="button">Save day</button></div>
+    <p class="msg" id="m-manual" role="status"></p>
+  </section>
+  </details>
+
+  <section class="mine" aria-labelledby="h-mine">
+    <h2 id="h-mine">Your data</h2>
+    <ul class="sources" id="sources"></ul>
+    <div class="act wrap">
+      <button class="btn ghost" id="backup" type="button">Download a backup</button>
+      <label class="btn file ghost"><input type="file" id="restore" accept=".json,application/json">Restore a backup</label>
+      <button class="btn danger" id="wipe" type="button">Delete everything</button>
+    </div>
+    <p class="msg" id="m-mine" role="status"></p>
+    <h2 id="privacy">Privacy</h2>
+    <p class="note">Signed in, your numbers are kept in your Motus account so they can arrive by themselves and show on any of your devices. Hevy's key is stored encrypted and used only to read your workouts; the Motus Shortcut sends only steps, sleep, weight and energy. Nothing is sold or shared, and there's no tracking or advertising. Without an account, files you import stay in this browser on this device. Deleting your account removes everything from Motus at once.</p>
+  </section>
+</main>
+<script type="module" src="js/pages/connect.js"></script>
+</body>
+</html>

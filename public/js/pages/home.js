@@ -2,7 +2,7 @@
 import { prefs, today, add, weekStart, weekAvg, avgRange, workoutsBetween, label, dayMonth, NO, esc, int, one,
          unit, toDisp, initNav, DAY_LETTERS, DAY_SHORT, dow } from "../core.js";
 import { getData } from "../store.js";
-import { autoRefresh, getSync } from "../sync.js";
+import { autoRefresh, cachedMe } from "../account.js";
 
 let data, days;
 const load = () => { data = getData(); days = data.days; };
@@ -106,12 +106,12 @@ function chart(m) {
 function banner() {
   const el = document.getElementById("banner");
   if (data.demo) {
-    el.innerHTML = 'You’re looking at <b>demo data</b> from a made-up person. <a href="connect.html">Connect your apps</a> to see your own; it stays on your device.';
+    el.innerHTML = 'You’re looking at <b>demo data</b> from a made-up person. <a href="connect.html">Connect your apps</a> to see your own.';
   } else {
-    const newest = Object.keys(days).filter(d => d <= today).sort().pop(), sync = getSync();
-    if (sync && sync.hevyError) el.innerHTML = `Hevy didn't sync: ${esc(sync.hevyError)} <a href="connect.html#auto">Check your setup</a>.`;
+    const newest = Object.keys(days).filter(d => d <= today).sort().pop(), me = cachedMe();
+    if (me && me.hevy && me.hevy.error) el.innerHTML = `Hevy didn't sync: ${esc(me.hevy.error)} <a href="connect.html">Connect it again</a>.`;
     else if (newest && newest < add(today, -2)) el.innerHTML = `Your newest data is from ${DAY_SHORT[dow(newest)]} ${dayMonth(newest)}. ` +
-      (sync ? 'Check that the Motus automation on your phone ran. <a href="connect.html#auto">Automatic sync</a>' : '<a href="connect.html">Import again</a> to bring it up to date.');
+      (me && me.health && me.health.connected ? "Check that the Motus automation on your iPhone is on." : '<a href="connect.html">Connect your apps</a> to keep it up to date.');
     else { el.hidden = true; return; }
   }
   el.hidden = false;
@@ -121,8 +121,8 @@ function footer() {
   const el = document.getElementById("foot");
   if (data.demo) { el.textContent = "Demo data, made up in your browser. Nothing here is a real person."; return; }
   const when = iso => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-  const sync = getSync();
-  el.textContent = "From " + data.sources.map(s => `${s.name} (updated ${when(s.id === "sync" && sync && sync.updated ? sync.updated : s.imported)})`).join(", ") + ". Stored on this device only.";
+  el.textContent = "From " + data.sources.map(s => s.imported ? `${s.name} (updated ${when(s.imported)})` : s.name).join(", ") +
+    (cachedMe() ? ". Kept in your Motus account." : ". Stored on this device only.");
 }
 
 function render() {

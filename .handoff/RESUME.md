@@ -1,31 +1,31 @@
 # RESUME: read this first
 
-**Project:** Motus (public app): a fitness dashboard anyone can use. Visitors see demo data, then connect once (automatic sync through their own free GitHub copy) or import files from Apple Health, Hevy, Strong, MyFitnessPal or a CSV.
-**Repos:** https://github.com/alyamiMohd/motusapp (the app, public, `main`) · https://github.com/alyamiMohd/motus-sync (public **template** each person copies for automatic sync; its files live in `motusapp/sync/template/`)
-**Live:** https://alyamimohd.github.io/motusapp/ · **Last updated:** 2026-10-27 10:40 (UTC+03, Riyadh)
-**Related:** the owner's personal dashboard `alyamiMohd/motus` keeps running separately.
+**Project:** Motus (public app): a fitness dashboard anyone can use. Sign in with an emailed code, connect Hevy and Apple Health once, and it stays up to date by itself; files can also be imported; demo data until then.
+**Repo:** https://github.com/alyamiMohd/motusapp (public, `main`). Pages without accounts: https://alyamimohd.github.io/motusapp/ . The full app (with accounts) runs on Cloudflare once deployed (not yet).
+**Last updated:** 2026-10-27 (UTC+03, Riyadh)
+**Obsolete:** `alyamiMohd/motus-sync` (template for the earlier GitHub-copy sync, rejected as onboarding); its copies would fail now. Ask the owner before archiving/deleting it.
 
 ## Instructions for Claude
 1. Read in this order: `CLAUDE.md` → this file → `user-profile.md` → `requirements.md` → `decisions.md` → `project-state.md` → `next-steps.md` → the last 3 entries of `conversation-log.md` → `skills/`.
 2. Adopt `user-profile.md` from your first reply (plain, short, honest; do the work yourself; verify before claiming).
 3. Do not re-ask what `requirements.md` / `decisions.md` settle. Do not reverse a recorded decision silently.
-4. Before anything: `git pull --rebase`, `git status`; trust the code and the live site over these notes when they disagree, and say so.
+4. Before anything: `git pull --rebase`, `git status`; trust the code over these notes when they disagree, and say so.
 5. Give a 3–6 line "where we left off", then continue with the next action.
-6. Every change: `npm test` → check the UI in the Browser pane at 390px and 320px → secret/personal-data scan → commit and push to `main` (and to `motus-sync` if `sync/template/` changed) → check the Actions run and the live site → update `.handoff/`.
+6. Every change: `npm test` → `npm run dev` and check in the Browser pane at 390px and 320px → secret scan → commit and push → check Actions → update `.handoff/`.
 
 ## Current status
-- Live: Home, Workouts, Weeks, Connect (Automatic setup first, then one-off imports), Shortcut instructions page. 162 automated checks pass.
-- **Automatic sync works end to end (tested 2026-10-27 on the template repo itself, with made-up data):** a phone-style upload (`repository_dispatch`) → the job opened the previous encrypted file, merged, published `motus-data.enc` on GitHub Pages → the app connected through the "link for another device" and showed exactly the uploaded numbers. Hevy-in-the-job is covered by tests with a faked Hevy, not run live (no key available to Claude).
-- The first live run exposed that GitHub prints a step's env in the public log; the upload is now read from the event file and a test guards it. That first run's log (only made-up numbers) is still visible in motus-sync's Actions history.
-- The template repo `motus-sync` has a **test** `MOTUS_KEY` secret and GitHub Pages on (serving the made-up encrypted test data). Copies don't inherit either. The test key is in Claude's scratchpad only.
-- Not yet done by anyone: building the real **Motus Shortcut** on an iPhone (steps on `shortcut.html`), and trying imports or the whole flow with real data on a real iPhone.
+- Built and tested locally (2026-10-27): email-code sign-in, sessions, Connect Hevy (opens Hevy's key page, Paste key, server checks and syncs in the background via /v1/workouts/events), Connect Apple Health (Shortcut token, upload endpoint, return to Connect), imports saved to the account, sign out/in, delete account, cron. 173 automated checks pass (45 run the server on a real SQLite database); the whole flow was also run on `wrangler dev` in the Browser pane, with the Shortcut's upload simulated by curl.
+- **Not deployed:** needs the owner's Cloudflare account (`npx wrangler login`), then the steps in README → "First deploy to Cloudflare"; a Resend account for the code emails (without a verified domain, codes only reach the Resend account's own address).
+- **The Motus Shortcut isn't built yet:** only the owner can build it on an iPhone (public/shortcut.html); then its iCloud link goes into `SHORTCUT_URL` in `public/js/account.js`.
+- Hevy with a real key and the real Shortcut on a real iPhone are not tested.
+- Cloudflare free plan: 10 ms CPU per request/cron; Hevy syncs are done in small steps for that reason. With real users, the $5/month Workers plan removes the risk.
 
 ## Next action
-The owner builds the Motus Shortcut once on their iPhone (https://alyamimohd.github.io/motusapp/shortcut.html), sets up their own copy through Connect → Automatic, and reports what happens. If it works, they share the Shortcut's iCloud link: put it in `SHORTCUT_URL` in `js/pages/connect.js` (ideally with import questions for the copy's name and the token) so other people get it in one tap.
+Owner: create a free Cloudflare account and a free Resend account, then say so; Claude runs `npx wrangler login` (the owner clicks Allow in the browser), creates the database, sets the secrets (Resend key: the owner pastes it into the terminal prompt themselves) and deploys. Then the owner builds the Shortcut on their iPhone and tries the whole flow.
 
 ## Open questions waiting on the owner
-- Licence for the code (none yet). Custom domain (also gives the app its own storage origin). Keep `.handoff/` public or move it.
-- Later phase: real accounts with **email-code sign-in** (the owner's choice, 2026-10-27) and a small server, so people without GitHub get automatic sync too. Needs a host (e.g. Cloudflare, the owner creates the account), an email-sending service and a domain.
+- Archive or delete `alyamiMohd/motus-sync`? Default: leave it until asked.
+- A domain (for code emails to everyone and a nice address). Licence. Keep `.handoff/` public.
 
 ## Last thing in progress
-"The whole point of this, is to once connect your apps, and then have it fully automated the whole time". Owner chose: "For now make it use the github actions to pull what's required"; approved creating `alyamiMohd/motus-sync`. All built, pushed and tested; waiting for the owner's iPhone test.
+Owner: "This is the most complicated and insane onboarding ... make it a click of a button integrations ... redirects to hevy ... for ios health the same thing". Chose "Shortcut + Motus accounts". Built and tested locally; waiting for Cloudflare/Resend accounts to deploy.

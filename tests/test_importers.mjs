@@ -4,14 +4,14 @@
 import { readFileSync } from "node:fs";
 import { deflateRawSync } from "node:zlib";
 import { check, near, section, finish } from "./harness.mjs";
-const { parseCSV, num, parseDateTime, columns } = await import("../js/importers/csv.js");
-const { fromHevyCSV, fetchHevy } = await import("../js/importers/hevy.js");
-const { fromStrongCSV } = await import("../js/importers/strong.js");
-const { fromMfpCSV, importMfp } = await import("../js/importers/mfp.js");
-const { healthXmlScanner, importAppleHealth, fromHealthExporterJSON } = await import("../js/importers/apple.js");
-const { fromSheetCSV, template, TEMPLATE_HEADER } = await import("../js/importers/sheet.js");
-const { listEntries, entryText } = await import("../js/importers/zip.js");
-const { localISO } = await import("../js/core.js");
+const { parseCSV, num, parseDateTime, columns } = await import("../public/js/importers/csv.js");
+const { fromHevyCSV, fetchHevy } = await import("../public/js/importers/hevy.js");
+const { fromStrongCSV } = await import("../public/js/importers/strong.js");
+const { fromMfpCSV, importMfp } = await import("../public/js/importers/mfp.js");
+const { healthXmlScanner, importAppleHealth, fromHealthExporterJSON } = await import("../public/js/importers/apple.js");
+const { fromSheetCSV, template, TEMPLATE_HEADER } = await import("../public/js/importers/sheet.js");
+const { listEntries, entryText } = await import("../public/js/importers/zip.js");
+const { localISO } = await import("../public/js/core.js");
 
 const fx = name => readFileSync(new URL("./fixtures/" + name, import.meta.url));
 const file = (name, buf) => new File([buf], name);

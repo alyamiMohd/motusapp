@@ -1,6 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
+    { "name": "motus-dev", "runtimeExecutable": "npx", "runtimeArgs": ["wrangler", "dev", "--port", "8787", "--ip", "127.0.0.1"], "port": 8787 },
     { "name": "motusapp", "runtimeExecutable": "node", "runtimeArgs": ["serve.mjs", "8098"], "port": 8098 }
   ]
 }

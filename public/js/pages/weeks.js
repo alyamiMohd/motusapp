@@ -2,7 +2,7 @@
 import { prefs, add, dayMonth, one, int, unit, toDisp, initNav, download } from "../core.js";
 import { getData } from "../store.js";
 import { buildWeeks } from "../stats.js";
-import { autoRefresh } from "../sync.js";
+import { autoRefresh } from "../account.js";
 
 const SHOWN = 12, NODATA = '<span class="no">no data</span>';
 let data, weeks = [], showAll = false;

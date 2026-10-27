@@ -1,30 +1,10 @@
 # Motus
 
-A quiet, private dashboard for your sleep, steps, food, weight and workouts.
+A quiet dashboard for your sleep, steps, food, weight and workouts.
 
-**Open it:** https://alyamimohd.github.io/motusapp/
-
-- **Connect once, then it keeps itself up to date.** The Connect page's *Automatic* setup (about ten minutes, once) uses your own free GitHub account: your iPhone sends Apple Health every day (MyFitnessPal and other apps come along through Health), and Hevy is fetched every few hours. See [Automatic sync](#automatic-sync).
-- **No Motus account, no Motus server.** Motus runs in your browser and keeps what you see on your device. Automatic sync stores only a file encrypted with a key that you hold.
-- **Or import a file** whenever you like: Apple Health, Hevy (API key or export), Strong, MyFitnessPal, or any app through a simple spreadsheet. You can also type a day by hand.
+- **Connect once, then it keeps itself up to date.** Sign in with your email (a 6-digit code, no password), tap **Connect Hevy** and **Connect Apple Health**. Workouts sync in the background; your iPhone sends the day's Health numbers every morning. MyFitnessPal comes along through Apple Health.
+- **Or import a file**: Apple Health export, Hevy or Strong CSV, MyFitnessPal export, any app through a spreadsheet, or a day by hand. Without an account, imports stay on your device.
 - **Demo first.** Until you connect something, Motus shows five months of made-up data so you can look around.
-
-## Automatic sync
-
-```
-iPhone: Motus Shortcut (daily automation) ──repository_dispatch──┐
-Hevy API ◄── every 3 hours ───────────────────────────────────────┤
-                                     your copy of alyamiMohd/motus-sync (GitHub Actions)
-                                     └─ runs sync/run.mjs from this repo
-                                     └─ publishes motus-data.enc (AES-256-GCM, your MOTUS_KEY) on your GitHub Pages
-Motus in your browser ── fetches motus-data.enc on every visit ── opens it with the key saved on your device
-```
-
-- Each person makes their own copy of the template [alyamiMohd/motus-sync](https://github.com/alyamiMohd/motus-sync) (public is fine: only the encrypted file is published, and the job never prints numbers). Setup: [Connect → Automatic](https://alyamimohd.github.io/motusapp/connect.html#auto); iPhone part: [shortcut.html](https://alyamimohd.github.io/motusapp/shortcut.html).
-- The job reads the phone's upload from GitHub's event file. It is never passed as an environment variable, because GitHub prints a step's environment in the (public) log.
-- If the job can't open the data already published with its `MOTUS_KEY`, it stops without changing anything (unless started by hand with *Start over*). A Hevy problem fails the run so GitHub e-mails the owner of the copy; the data that did arrive is still published.
-- MyFitnessPal has no open API for new apps, so its numbers come through Apple Health. No website can read Apple Health, which is why the iPhone needs the Shortcut.
-- Later: real accounts with email-code sign-in, so people without GitHub can use automatic sync too.
 
 ## What you see
 
@@ -33,41 +13,60 @@ Motus in your browser ── fetches motus-data.enc on every visit ── opens 
 - **Weeks:** one row per finished week, downloadable as CSV.
 - **Standards:** your own goals (green when you reach them), training days, kg or lb, and whether weeks start on Sunday or Monday.
 
-## Supported imports
+## How connecting works
 
-| App | What comes in | How |
-|---|---|---|
-| Apple Health | steps, sleep, food energy, weight | Health app → your picture → Export All Health Data → choose `export.zip`. Also reads JSON from the Health Exporter app. |
-| Hevy | workouts | API key (Hevy Pro; requests go straight from your browser to `api.hevyapp.com`), or the app's CSV export |
-| Strong | workouts | Settings → Export Strong Data → choose the CSV |
-| MyFitnessPal | calories, weight | Premium data export (zip or its CSVs). Free accounts: sync to Apple Health and import that. |
-| Anything else | any of the above | A CSV with `date,sleep_hours,steps,calories,weight_kg,workouts,workout_minutes` (template on the Connect page) |
+```
+Browser ── /api ──► Cloudflare Worker (worker/) ── D1 database (worker/schema.sql)
+                      ├─ sign-in: 6-digit code by email (Resend), HttpOnly session cookie
+                      ├─ Hevy: key checked once, stored encrypted (HEVY_SECRET); /v1/workouts/events every 30 min
+                      └─ /api/upload: the Motus Shortcut's daily Apple Health numbers (its own token)
+iPhone: Motus Shortcut (built-in Shortcuts actions) ── POST /api/upload, daily automation
+```
 
-Apple Health exports list every sample from every device, so an iPhone and a watch both counting the same walk appear twice. Motus takes, for each day, the single source with the highest total, which is close to what the Health app shows.
+- **Hevy** has no "Sign in with Hevy"; it gives Pro users an API key. **Connect Hevy** opens Hevy's key page; people copy the key, come back and tap **Paste key**. The server checks it with Hevy, keeps it encrypted, and fetches changes in the background.
+- **Apple Health** can't be read by any website. **Connect Apple Health** adds the Motus Shortcut (one tap once it is published; until then [shortcut.html](public/shortcut.html) shows how it's built) and **Finish** runs it once with the account's upload address and token; iOS asks to allow Health. People add the daily automation themselves (iOS doesn't let apps do that).
+- **MyFitnessPal** has no open API for new apps; it writes to Apple Health, so it arrives with Apple Health.
+- **Strong** has no API; it comes as a CSV export.
 
-## Run it locally
+## Run and deploy
 
-No build step and no dependencies; Node 20 or newer.
+Node 20+ (tests use `node:sqlite`). `npm install` once.
 
 ```bash
-npm start      # http://localhost:8098
-npm test       # importers, averaging rules, storage
+npm test                 # importers, averaging rules, storage, and the server against a real SQLite database
+npm run dev              # the full app with its server on http://127.0.0.1:8787 (local database, codes printed in the log)
+npm start                # only the static pages, no accounts, on http://localhost:8098
 ```
+
+Local secrets live in `.dev.vars` (git-ignored): `HEVY_SECRET` (32 random bytes, base64), `CODE_PEPPER`, `DEV_SHOW_CODES=1`.
+Create the local tables once: `npx wrangler d1 execute motus --local --file worker/schema.sql`.
+
+**First deploy to Cloudflare** (free plan to start):
+
+1. `npx wrangler login` (opens Cloudflare in the browser to allow it).
+2. `npx wrangler d1 create motus`, then put the printed `database_id` in `wrangler.jsonc`.
+3. `npx wrangler d1 execute motus --remote --file worker/schema.sql`
+4. Secrets: `npx wrangler secret put HEVY_SECRET` (32 random bytes, base64), `CODE_PEPPER` (any long random text), `RESEND_API_KEY` (from resend.com).
+5. `npx wrangler deploy` → `https://motus.<your-subdomain>.workers.dev`.
+6. To send codes to everyone (not only the Resend account's own address): add a domain in Resend, verify it, and set `EMAIL_FROM` in `wrangler.jsonc`.
+
+GitHub Pages (`.github/workflows/pages.yml`) keeps publishing `public/` as the app without accounts.
 
 ## Layout
 
 | Path | What it is |
 |---|---|
-| `index.html`, `workouts.html`, `weeks.html`, `connect.html`, `shortcut.html`, `style.css` | The pages |
-| `js/core.js` | Dates, goals and settings, formatting, the navbar |
-| `js/store.js` | On-device storage; merges sources (hand entry > automatic sync > Apple Health > MyFitnessPal > spreadsheet > Hevy > Strong) |
-| `js/stats.js` | Workout summaries, estimated 1RM, ratings, weekly history |
-| `js/demo.js` | The demo data |
-| `js/sync.js` | Automatic sync: the key, encryption, opening the sync file, refreshing on every visit |
-| `sync/run.mjs`, `sync/template/` | The job each person's copy runs, and the files of the motus-sync template repo |
-| `js/importers/` | One file per app, plus a CSV/date helper and a small zip reader |
-| `tests/` | `node tests/test_*.mjs`; fixtures are made up |
+| `public/` | The app: `index.html`, `workouts.html`, `weeks.html`, `connect.html`, `shortcut.html`, `style.css`, `js/` |
+| `public/js/core.js` | Dates, goals and settings, formatting, the navbar |
+| `public/js/store.js`, `merge.js` | Data on the device; sources and their priority (hand entry > Apple Health connected > Apple Health file > MyFitnessPal > spreadsheet > Hevy connected > Hevy file > Strong); merging shared with the server |
+| `public/js/account.js` | Sign-in, keeping the device in step with the account, connecting Hevy and Apple Health |
+| `public/js/health.js` | Reading the Shortcut's uploads (also phones set to Arabic) and Health Exporter JSON; shared with the server |
+| `public/js/stats.js`, `demo.js`, `importers/` | Workout summaries and ratings, the demo, one importer per file type |
+| `worker/` | The server: `index.js` (routes, cron), `auth.js`, `hevy.js`, `util.js`, `schema.sql` |
+| `tests/` | `node tests/test_*.mjs`; `d1.mjs` runs the server's SQL on Node's SQLite; fixtures are made up |
 
-## Privacy
+## Privacy and security
 
-Motus has no backend, analytics, cookies or trackers. Pages are served by GitHub Pages, which sees visitors' IP addresses like any web host. With automatic sync, the phone's upload and the Hevy pull pass through the person's own GitHub copy while its job runs; what is stored and published is encrypted with their key. A Content-Security-Policy limits the pages to their own scripts, `api.hevyapp.com` (optional Hevy sync) and `*.github.io` (sync files).
+- Signed in, a person's numbers are stored in the Motus database so they can arrive by themselves and show on any device. Only hashes of sign-in codes, session cookies and Shortcut tokens are stored; Hevy keys are encrypted. Deleting the account removes everything at once.
+- Sessions are HttpOnly, SameSite=Lax cookies; every change must come from Motus's own pages (Origin check). Sign-in codes expire in 10 minutes, allow 5 tries, and are rate-limited per address and per IP.
+- No analytics, cookies other than the session, or third-party scripts. The pages' Content-Security-Policy allows only their own scripts and their own server.

@@ -2,7 +2,7 @@
 import { prefs, today, add, weekStart, workoutsBetween, label, esc, unit, toDisp, initNav } from "../core.js";
 import { getData } from "../store.js";
 import { exerciseStats, overallRating, workoutScore, mean } from "../stats.js";
-import { autoRefresh } from "../sync.js";
+import { autoRefresh } from "../account.js";
 
 let data, days, exercises, showAll = false, weekOffset = 0;
 

@@ -1,77 +1,57 @@
-# Project state (2026-10-26)
+# Project state (2026-10-27)
 
 ## Stack
-Plain HTML, CSS and JavaScript ES modules. No framework, build, CDN or npm dependencies. Node 20+ only for tests and the local preview server. Hosted on GitHub Pages from `main` (root). Browser features used: `localStorage`, `DecompressionStream("deflate-raw")`, `TextDecoderStream`, `Blob.stream()`.
+- `public/`: plain HTML, CSS, ES modules (no build, no framework). Pages: index (Home), workouts, weeks, connect, shortcut.
+- `worker/`: Cloudflare Worker (ES modules) + D1 (SQLite). Serves `public/` as static assets and `/api`. Deployed with `wrangler` 4.x (dev dependency; the only one).
+- Tests: Node 20+ (24 on this laptop and in CI), no test framework; `tests/d1.mjs` runs the worker's SQL on `node:sqlite`.
 
 ## Architecture
 ```
-visitor's browser
-  connect.html ── importers (js/importers/*) ── putSource() ──► localStorage "motusapp-data-v1" (one entry per app)
-                                                                 └─ getData(): merge by priority; demo (js/demo.js) when empty
-  index / workouts / weeks ◄── getData()  +  prefs in localStorage "motusapp-prefs"
-  optional: Hevy API (GET api.hevyapp.com/v1/workouts, api-key header) straight from the browser
+Browser (public/) ── same origin ──► Worker (worker/index.js) ── D1 (worker/schema.sql)
+  account.js: sign-in, pull (ETag), push imports       ├─ auth.js: codes (hash, 10 min, 5 tries, rate limits), session cookie
+  store.js/merge.js: sources + priority                 ├─ hevy.js: key encrypted (HEVY_SECRET), /v1/workouts/events in steps
+                                                       ├─ /api/upload: Shortcut token (hash) → merge into source "health"
+                                                       └─ cron */30: Hevy steps for a few accounts, cleanup
+iPhone: Motus Shortcut ── POST /api/upload (Bearer mh_…) daily via a Shortcuts automation
+Resend: sends the sign-in codes (RESEND_API_KEY)
 ```
+
+## API
+| Route | What |
+|---|---|
+| POST /api/auth/start, /api/auth/verify, /api/auth/logout | email code sign-in; cookie `motus` (HttpOnly, SameSite=Lax, Secure on https, 1 year) |
+| GET /api/me · DELETE /api/me | status (Hevy, Health) · delete the account and everything |
+| GET /api/data | `{ me, sources: {id: {imported, data}}, workouts: [...] }`, ETag = users.changed |
+| PUT/DELETE /api/sources/:id | device-imported sources: manual, apple, mfp, csv, hevy, strong |
+| POST/DELETE /api/hevy · POST /api/hevy/sync | connect (validate + first step) / disconnect · next sync step |
+| POST/DELETE /api/health | new Shortcut token (replaces the old) + upload URL / disconnect |
+| POST /api/upload | the Shortcut's upload: `{steps, calories, active, weight, sleep}` lines, or Health Exporter JSON/`health_b64`, or `{days}` |
+All cookie-authenticated non-GET requests require `Origin` = the app's origin.
+
+## Sources (priority, highest first)
+manual > health (Shortcut) > apple (file) > mfp > csv > hevy_live (connected Hevy, computed in the browser from the server's workouts) > hevy (CSV) > strong.
 
 ## Files
 | Path | Role |
 |---|---|
-| `index.html` + `js/pages/home.js` | Home: week-to-date averages, weight per week, week strip, last week line, 7-day table, 30-day charts, demo/stale banner |
-| `workouts.html` + `js/pages/workouts.js` | Last workout rating, 4-week rating, workouts per week, exercises by e1RM, ratings this/last week, "How ratings work" |
-| `weeks.html` + `js/pages/weeks.js` | Completed weeks, newest first, CSV download |
-| `connect.html` + `js/pages/connect.js` | One section per app with steps and an import; Hevy key (optional "keep on this device", key `motusapp-hevy-key`); hand entry; Your data (sources, remove, backup, restore, delete everything); Privacy |
-| `js/core.js` | Dates (visitor's local time), `weekStart`, `weekAvg`, prefs (goals, kg/lb, week start), `esc`, navbar + Standards panel |
-| `js/store.js` | Sources, cleaning ranges, merge priority, replace vs merge, backup/restore |
-| `js/stats.js` | `summarizeWorkouts` (Epley e1RM, reps ≤ 12, no warm-ups), `buildWeeks`, `exerciseStats`, `overallRating`, `sessionScore`, `workoutScore` |
-| `js/demo.js` | Seeded demo: 150 days, 4-day split, progressive e1RM, a "new" exercise |
-| `js/importers/csv.js` | CSV parser (`,` `;` tab, quotes, BOM), loose column names, numbers, dates (ISO, "25 Oct 2026, 18:30", "Oct 25, 2026 6:30 PM", slash dates month-first unless the first number > 12) |
-| `js/importers/zip.js` | Zip reader incl. ZIP64; streams one entry |
-| `js/importers/apple.js` | `export.xml` streaming scanner; Health Exporter JSON |
-| `js/importers/hevy.js` | Hevy API (paged, retries 429/5xx, clear 401 message) and CSV (`weight_kg` or `weight_lbs`, `set_type` warmup) |
-| `js/importers/strong.js` | Strong CSV, old (`;`, "Weight Unit", "1h 5m") and new ("Weight (kg)", "Duration (sec)", Set Order "W") |
-| `js/importers/mfp.js` | MyFitnessPal Nutrition Summary (meals summed) and Measurement Summary (weight, unit chosen by the visitor), from zip or CSVs |
-| `js/importers/sheet.js` | Generic CSV and its template |
-| `tests/test_core.mjs` (43), `tests/test_importers.mjs` (65), `tests/test_store.mjs` (20) | 128 checks; `tests/fixtures/` are made up; `export.zip` and `mfp-export.zip` were made with Windows' `tar.exe`; the ZIP64 file is built in the test |
-| `serve.mjs` | Local preview server (port 8098) |
-| `.github/workflows/test.yml` | `npm test` on every push |
+| `public/js/core.js` | dates, prefs (goals, kg/lb, week start), formatting, navbar |
+| `public/js/store.js` | device storage, `putSource`, `setAll` (account copy), `getData` (merge + demo) |
+| `public/js/merge.js` | `clean`, `mergeSource` (shared with the worker) |
+| `public/js/health.js` | upload reader (Shortcut lines incl. Arabic digits/units/sleep names; Health Exporter JSON; days) |
+| `public/js/account.js` | API client: sign-in/out, pull/push, Hevy connect/sync, Health setup link, `SHORTCUT_URL` |
+| `public/js/pages/*.js` | one script per page; every page renders from the device copy, then `autoRefresh()` |
+| `public/js/importers/*` | file imports (Apple export.zip/xml streaming, Hevy CSV, Strong CSV, MFP zip/CSV, spreadsheet) |
+| `worker/index.js`, `auth.js`, `hevy.js`, `util.js`, `schema.sql` | the server |
+| `wrangler.jsonc` | Worker config: assets `public/`, D1 binding `DB` (database_id placeholder until created), cron, `EMAIL_FROM` |
+| `.dev.vars` (git-ignored) | local secrets: HEVY_SECRET, CODE_PEPPER, DEV_SHOW_CODES=1 |
+| `.github/workflows/test.yml`, `pages.yml` | tests on every push; GitHub Pages publishes `public/` (no accounts there) |
+| `tests/` | test_core (43), test_importers (65), test_store (20), test_server (45); harness.mjs, d1.mjs, fixtures/ |
 
-## Commands
-- `npm start` (preview on http://localhost:8098), `npm test`.
-- Pages: already enabled (`gh api -X POST repos/alyamiMohd/motusapp/pages -f source[branch]=main -f source[path]=/`). A push to `main` redeploys in about a minute.
+## Secrets and accounts (names only)
+Production secrets via `npx wrangler secret put`: `HEVY_SECRET` (32 random bytes, base64), `CODE_PEPPER`, `RESEND_API_KEY`. Accounts the owner needs: Cloudflare (free), Resend (free); later a domain.
 
-## Environment variables / secrets
-None. The app has no secrets. A visitor's Hevy key lives only in their own browser if they tick "keep".
-
-## What works (verified 2026-10-26)
-- All 128 tests pass locally (Node 24) and on GitHub Actions (Node 22).
-- Live site loads with demo data, no console errors, no sideways scroll at 375px; checked locally at 390px and 320px (nav fits: rightmost link ends at 304px), desktop, light and dark.
-- Through the real page in Edge: Apple Health zip, MyFitnessPal zip, Hevy CSV, hand entry; Hevy API reached with a fake key (401 → clear message, key not saved); merge priority as designed; lb and Monday settings change every view.
-
-## Known limitations
-- Importers are tested only against made-up files in each app's known format; real exports may differ (header names, date formats). Hevy/Strong/MyFitnessPal menu paths on the Connect page are not checked in the apps.
-- Apple Health de-duplication is approximate (D-006).
-- Storage: `localStorage` (about 5 MB). Years of data fit; an extremely large history might not, in which case the page says it couldn't save.
-- The origin `alyamimohd.github.io` is shared with the owner's other Pages sites (`motus`), so they share browser storage; keys are prefixed `motusapp-` so nothing collides.
-- Large Apple exports on older phones may be slow; not tested on a real iPhone.
-
-## Automatic sync (added 2026-10-27)
-```
-iPhone: Motus Shortcut (Health Exporter "Export Health Data" → Base64 → POST /repos/<copy>/dispatches, event_type "health")
-Hevy API ◄─ every 3 h
-        └► person's copy of alyamiMohd/motus-sync: .github/workflows/motus-sync.yml
-             checks out alyamiMohd/motusapp@main → node motus/sync/run.mjs out
-             reads previous motus-data.enc from its own Pages, merges, encrypts (MOTUS_KEY), deploys Pages
-Motus (any page) ── autoRefresh() ── fetch https://<user>.github.io/<copy>/motus-data.enc ── unseal with the key in localStorage
-```
-| Piece | Where |
-|---|---|
-| Key, seal/unseal (AES-256-GCM, gzip, random IV), sync file → source, `pullSync`, `autoRefresh` (also refetches Hevy every 30 min for keys saved in the browser) | `js/sync.js` |
-| The job: previous state (404 = first run; can't open = stop), upload from `GITHUB_EVENT_PATH` (`health_b64`, `health`, `days`), Hevy, write `out/` | `sync/run.mjs` |
-| Template repo files (pushed to `alyamiMohd/motus-sync` by hand when they change) | `sync/template/` |
-| Setup guide and device link (`connect.html#sync=<repo>:<key>`) | `connect.html`, `js/pages/connect.js` (`SHORTCUT_URL` empty until the owner shares the Shortcut) |
-| Shortcut instructions (fills in the person's copy) | `shortcut.html`, `js/pages/shortcut.js` |
-| Tests (34) | `tests/test_sync.mjs` |
-
-Browser storage keys: `motusapp-data-v1`, `motusapp-prefs`, `motusapp-sync` ({repo, url, key, last, updated, hevyError}), `motusapp-sync-draft` (during setup), `motusapp-hevy-key`, `motusapp-hevy-last`.
-Secrets in each copy: `MOTUS_KEY` (required), `HEVY_API_KEY` (optional). Phone token: fine-grained, Contents read/write, that copy only, ≤ 366 days, stored only in the Shortcut.
-The template repo itself has a test `MOTUS_KEY` and Pages on, for live tests; scheduled runs are skipped there (`if:` in the workflow).
-Verified live 2026-10-27 with made-up data: dispatch → run → Pages → app showed the exact numbers. Not verified: a real Shortcut, Hevy inside the job, the 60-day schedule keep-alive.
+## Verified (2026-10-27)
+- `npm test`: 173 checks pass.
+- `wrangler dev` in the Browser pane: sign-in with a printed code; HttpOnly cookie; Shortcut token + simulated upload (curl) → Home shows the numbers (sleep 7.4 h / 7.3 h as expected); Connect Hevy opens Hevy's key page, a fake key gets Hevy's real refusal; a CSV import while signed in is saved to the account; sign out clears the device, sign in brings it all back; the cron runs.
+## Not verified
+Deploy to Cloudflare; real Resend emails; Hevy with a real key; the real Shortcut on an iPhone (Health permission, automation, Arabic-language phone); free-plan CPU limits under real load.

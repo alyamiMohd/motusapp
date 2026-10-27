@@ -1,0 +1,19 @@
+// Cloudflare Worker: serves public/ and the /api of worker/index.js. Commands: README.md → "Run and deploy".
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "motus",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-10-20",
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+  "d1_databases": [
+    // database_id comes from `npx wrangler d1 create motus` (the first deploy); any value works for local runs
+    { "binding": "DB", "database_name": "motus", "database_id": "00000000-0000-0000-0000-000000000000" }
+  ],
+  "triggers": { "crons": ["*/30 * * * *"] },
+  "vars": {
+    // until a domain is verified in Resend, onboarding@resend.dev can only send to the Resend account's own address
+    "EMAIL_FROM": "Motus <onboarding@resend.dev>"
+  },
+  // secrets (npx wrangler secret put NAME): HEVY_SECRET (32 random bytes, base64), CODE_PEPPER, RESEND_API_KEY
+  "observability": { "enabled": true }
+}

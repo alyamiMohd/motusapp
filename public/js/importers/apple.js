@@ -8,6 +8,7 @@
 // with the highest total (for steps, sleep, food energy and active energy). Weight is the last reading of the day.
 import { isZip, listEntries, entryStream } from "./zip.js";
 import { LB } from "./csv.js";
+import { fromHealthExporterJSON } from "../health.js";
 
 const TYPES = {
   HKQuantityTypeIdentifierStepCount: "steps",
@@ -81,19 +82,8 @@ export function healthXmlScanner() {
   };
 }
 
-// Health Exporter app JSON: { stepCount: [{date, value}], sleepTime: [{date, value (minutes)}], dietaryEnergy, weight, activeCalories }
-export function fromHealthExporterJSON(obj) {
-  if (!obj || typeof obj !== "object" || !["stepCount", "sleepTime", "dietaryEnergy", "weight"].some(k => Array.isArray(obj[k])))
-    throw new Error("This JSON file isn't a Health Exporter export.");
-  const days = {};
-  const put = (key, k, fn) => { for (const it of obj[key] || []) { const v = fn(+it.value, it.unit); if (it.date && v) (days[it.date] || (days[it.date] = {}))[k] = v; } };
-  put("stepCount", "steps", v => Math.round(v));
-  put("sleepTime", "sleep_hours", v => Math.round(v / 60 * 100) / 100);
-  put("dietaryEnergy", "calories", (v, u) => Math.round(energy(v, u || "kcal") || 0));
-  put("activeCalories", "active_kcal", (v, u) => Math.round(energy(v, u || "kcal") || 0));
-  put("weight", "weight_kg", (v, u) => Math.round((mass(v, u || "kg") || 0) * 10) / 10);
-  return { days };
-}
+// Health Exporter app JSON (shared with the server's upload reader)
+export { fromHealthExporterJSON };
 
 // Any of: export.zip, export.xml, Health Exporter .json. onProgress(fraction 0..1).
 export async function importAppleHealth(file, onProgress = () => {}) {
