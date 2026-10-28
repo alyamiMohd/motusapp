@@ -98,8 +98,13 @@ $("b-shortcut").addEventListener("click", e => { if (needAccount("live-health"))
 async function finishHealth() {
   if (needAccount("live-health")) return;
   busy(["b-finish", "b-health-again"], true);
-  try { location.href = await healthSetupLink(); }      // opens Shortcuts, which runs Motus once and comes back here
-  catch (e) { say("live-health", esc(e.message), "bad"); }
+  try {
+    const link = await healthSetupLink();
+    location.href = link;                                // opens Shortcuts, which runs Motus once and comes back here
+    // Safari may refuse to leave for another app this long after the tap; then the person taps the link themselves
+    setTimeout(() => { if (document.visibilityState === "visible")
+      say("live-health", `If Shortcuts didn't open, <a href="${esc(link)}">tap here to open it</a>. The Shortcut must be called exactly “Motus”.`); }, 1500);
+  } catch (e) { say("live-health", esc(e.message), "bad"); }
   busy(["b-finish", "b-health-again"], false);
 }
 $("b-finish").onclick = finishHealth;
