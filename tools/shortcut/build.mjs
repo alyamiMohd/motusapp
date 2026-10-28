@@ -130,6 +130,7 @@ export function build() {
   const DAY = "yyyy-MM-dd", MIN = "yyyy-MM-dd HH:mm";
   const health = [
     ...healthBlock("Steps", "Steps", 7, true, ["Start Date", "Value"], DAY),
+    // the picker shows "Dietary Energy" but stores "Dietary Calories" (seen in the owner's re-shared Shortcut, 2026-10-28)
     ...healthBlock("Calories", "Dietary Calories", 7, true, ["Start Date", "Value", "Unit"], DAY),
     ...healthBlock("Active", "Active Calories", 7, true, ["Start Date", "Value", "Unit"], DAY),
     ...healthBlock("Weight", "Weight", 7, false, ["Start Date", "Value", "Unit"], MIN),

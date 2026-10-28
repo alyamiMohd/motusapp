@@ -12,7 +12,7 @@ const set = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStor
 
 // The shared Motus Shortcut: an iCloud link, signed by Apple, so it adds on any iPhone. Made 2026-10-28 from
 // tools/shortcut/build.mjs (signed once for the owner's iPhone by .github/workflows/sign-shortcut.yml, then shared).
-export const SHORTCUT_URL = "https://www.icloud.com/shortcuts/a869175a85ec4b039ac134a375f7a3fe";
+export const SHORTCUT_URL = "https://www.icloud.com/shortcuts/eb6a8c01f9194356bfac351f9c1c238f";
 export const HEVY_KEY_PAGE = "https://hevy.com/settings?developer";
 
 async function api(path, { method = "GET", body, headers = {} } = {}) {

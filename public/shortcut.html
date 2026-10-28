@@ -13,12 +13,12 @@
 <body>
 <main class="connect">
   <h1>The Motus Shortcut</h1>
-  <p class="lead">Add it in one tap: <a class="btn" href="https://www.icloud.com/shortcuts/a869175a85ec4b039ac134a375f7a3fe">Add the Motus Shortcut</a></p>
+  <p class="lead">Add it in one tap: <a class="btn" href="https://www.icloud.com/shortcuts/eb6a8c01f9194356bfac351f9c1c238f">Add the Motus Shortcut</a></p>
   <p class="note">Then go to Motus → Connect → <b>Finish</b> under Apple Health. Below is what it does and how it's made, for anyone who wants to check it or build their own; it uses only Apple's own Shortcuts actions, no other app.</p>
 
   <section class="app" aria-labelledby="h-what">
     <h2 id="h-what">What it does</h2>
-    <p class="what">Reads the last days of Steps, Dietary Calories, Active Calories, Weight and Sleep from Apple Health and sends them to your Motus account. Motus → Connect → <b>Finish</b> runs it the first time with your account's address and token, which it keeps in a small file. After that a daily automation runs it by itself.</p>
+    <p class="what">Reads the last days of Steps, Dietary Energy, Active Energy, Weight and Sleep from Apple Health and sends them to your Motus account. Motus → Connect → <b>Finish</b> runs it the first time with your account's address and token, which it keeps in a small file. After that a daily automation runs it by itself.</p>
   </section>
 
   <section class="app" aria-labelledby="h-make">
@@ -40,7 +40,7 @@
       <li>After <b>End Repeat</b>: <b>Combine Text</b>: <i>Repeat Results</i> with <b>New Lines</b> → Set Variable <code>Steps</code>.</li>
     </ol>
     <ul class="kv">
-      <li><span>Dietary Calories → <code>Calories</code></span> exactly like Steps (7 days, grouped by day; in the Health app it is called Dietary Energy).</li>
+      <li><span>Dietary Energy → <code>Calories</code></span> exactly like Steps (7 days, grouped by day). Pick it from the list yourself: Shortcuts stores it as “Dietary Calories”.</li>
       <li><span>Active Calories → <code>Active</code></span> exactly like Steps (in the Health app it is called Active Energy).</li>
       <li><span>Weight → <code>Weight</code></span> last 7 days, <b>no grouping</b>; the Text is Start Date (Custom <code>yyyy-MM-dd HH:mm</code>) <code>|</code> Value <code>|</code> Unit.</li>
       <li><span>Sleep Analysis → <code>Sleep</code></span> last 2 days, no grouping; the Text is Start Date <code>|</code> End Date (both Custom <code>yyyy-MM-dd HH:mm</code>) <code>|</code> Value <code>|</code> Source.</li>
