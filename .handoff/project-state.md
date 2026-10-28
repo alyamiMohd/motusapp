@@ -48,7 +48,7 @@ manual > health (Shortcut) > apple (file) > mfp > csv > hevy_live (connected Hev
 | `tests/` | test_core (43), test_importers (65), test_store (20), test_server (45); harness.mjs, d1.mjs, fixtures/ |
 
 ## Secrets and accounts (names only)
-Production secrets via `npx wrangler secret put`: `HEVY_SECRET` (32 random bytes, base64), `CODE_PEPPER`, `RESEND_API_KEY`. Accounts the owner needs: Cloudflare (free), Resend (free); later a domain.
+Production secrets via `npx wrangler secret put`: `HEVY_SECRET` (32 random bytes, base64), `CODE_PEPPER`, `GMAIL_SCRIPT_URL` + `GMAIL_SECRET` (the owner's Gmail sender, in use since 2026-10-28), `RESEND_API_KEY` (account paused; fallback only); optional `BREVO_API_KEY` + `EMAIL_FROM` (not set; `EMAIL_FROM` is no longer a plain var). Accounts: Cloudflare (free), the owner's Google account (Apps Script "Motus sign-in", Web app, access Anyone); later a domain.
 
 ## Verified (2026-10-27)
 - `npm test`: 173 checks pass.
