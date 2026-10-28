@@ -10,8 +10,9 @@ const ME = "motusapp-me", ETAG = "motusapp-etag";
 const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const set = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} };
 
-// The shared Motus Shortcut (an iCloud link) once the owner has made it; until then shortcut.html shows how to build it.
-export const SHORTCUT_URL = "";
+// The shared Motus Shortcut: an iCloud link, signed by Apple, so it adds on any iPhone. Made 2026-10-28 from
+// tools/shortcut/build.mjs (signed once for the owner's iPhone by .github/workflows/sign-shortcut.yml, then shared).
+export const SHORTCUT_URL = "https://www.icloud.com/shortcuts/a869175a85ec4b039ac134a375f7a3fe";
 export const HEVY_KEY_PAGE = "https://hevy.com/settings?developer";
 
 async function api(path, { method = "GET", body, headers = {} } = {}) {

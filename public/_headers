@@ -7,10 +7,3 @@
   Referrer-Policy: no-referrer
   Strict-Transport-Security: max-age=31536000
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-
-# Temporary (owner's first install of the Motus Shortcut; removed once it is shared as an iCloud link)
-/setup/motus-shortcut-signing.mobileconfig
-  Content-Type: application/x-apple-aspen-config
-/setup/Motus.shortcut
-  Content-Type: application/octet-stream
-  Content-Disposition: attachment; filename="Motus.shortcut"
