@@ -36,10 +36,17 @@ Carried over from the `motus` handoff (sessions of 2026-10-21 to 2026-10-24) and
 
 - 2026-10-27 "No I don't want to link my stuff ... what I'm trying to do is make that production level for people to start using it": don't ask the owner to connect their own Hevy/Health for testing. "just test everything by you, then I will test it after you have verified its working": Claude tests end to end first (local server + mock Hevy + simulated uploads), the owner tests after.
 - 2026-10-27 "if you are asking for an email then you have to create users in motus": every sign-in field must clearly mean a Motus account. Domain for email: "I will buy domain later on".
+- 2026-10-28 "No you build it yourself, and give me a copy link ... your end objective to create the shortcut": Claude builds and signs things; the owner only taps on the iPhone.
+- 2026-10-28 Free first, paid later: "let's do a free one now, if we check everything is good, we might buy a cloudflares one"; asks what each paid service is for before agreeing ("What do you need the routinehub for? testing only?", "which plan u need").
+- 2026-10-28 "brevo sucks, they don't even share the sms to my phone through mfa": services that need phone verification or long sign-ups are out.
+- 2026-10-28 "Something's off, the steps are doubled": checks the numbers against Apple Health; spots wrong totals quickly.
+- 2026-10-28 "if it already exists don't make it no more": don't build a duplicate of something that already does the job; explain how the existing thing covers it.
+- Rejected a small cosmetic refactor mid-task (2026-10-28) (inferred: don't touch working code that isn't part of the request).
 
 ## Environment
 - Windows 11 laptop, Claude desktop app (Git Bash + PowerShell), iPhone with Shortcuts and Apple Health. Timezone Asia/Riyadh (UTC+3). Python 3.10 and Node 24 on this laptop.
-- Accounts (names only): GitHub `alyamiMohd` (`gh` signed in), Hevy Pro, MyFitnessPal, the Health Exporter iPhone app, Cloudflare (free; workers.dev subdomain `motusapp`), Resend (free; testing mode, no domain yet).
+- Accounts (names only): GitHub `alyamiMohd` (`gh` signed in), Hevy Pro, MyFitnessPal, the Health Exporter iPhone app, Cloudflare (free; workers.dev subdomain `motusapp`), Google (Apps Script "Motus sign-in" sends the codes), Resend (paused by Resend), Brevo (abandoned at phone verification).
+- iPhone set to the Hijri (Umm al-Qura) calendar; has an iPhone and an Apple Watch (both write steps and energy).
 - This laptop: PowerShell's execution policy blocks `npx.ps1` (use `npx.cmd`); Claude's Bash and the owner's terminal keep separate wrangler logins.
 
 ## Things that frustrated them

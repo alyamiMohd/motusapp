@@ -1,8 +1,8 @@
 # RESUME: read this first
 
 **Project:** Motus (public app): a fitness dashboard anyone can use. Sign in with an emailed code, connect Hevy and Apple Health once, and it stays up to date by itself; files can also be imported; demo data until then.
-**Repo:** https://github.com/alyamiMohd/motusapp (public, `main`). **Live (with accounts): https://motus.motusapp.workers.dev** (Cloudflare: account subdomain `motusapp`, Worker `motus`, D1 `motus` id 4757ecc4-340b-41d4-a641-1f742da8af25, cron every 30 min). Pages without accounts: https://alyamimohd.github.io/motusapp/ (its Connect page links to the live app).
-**Last updated:** 2026-10-28 15:00 (UTC+03, Riyadh) · last code commit `d12eba9`, deployed
+**Repo:** https://github.com/alyamiMohd/motusapp (public, `main`). **Live (with accounts): https://motus.motusapp.workers.dev** (Cloudflare: account subdomain `motusapp`, Worker `motus`, D1 `motus` id 4757ecc4-340b-41d4-a641-1f742da8af25, region WEUR, cron every 30 min). Pages without accounts: https://alyamimohd.github.io/motusapp/ (its Connect page links to the live app).
+**Last updated:** 2026-10-28 16:10 (UTC+03, Riyadh) · last code commit `fd29eb5` (Shortcut v2), deployed as version 3624d6f6, which also carries two temporary files under `/setup/` (see below)
 **Obsolete:** `alyamiMohd/motus-sync` (template for the earlier GitHub-copy sync, rejected as onboarding); its copies would fail now. Ask the owner before archiving/deleting it.
 
 ## Instructions for Claude
@@ -11,21 +11,24 @@
 3. Do not re-ask what `requirements.md` / `decisions.md` settle. Do not reverse a recorded decision silently.
 4. Before anything: `git pull --rebase`, `git status`; trust the code over these notes when they disagree, and say so.
 5. Give a 3–6 line "where we left off", then continue with the next action.
-6. Every change: `npm test` → `npm run dev` and check in the Browser pane at 390px and 320px → secret scan → commit and push → check Actions → update `.handoff/`.
+6. Every change: `npm test` → check in the Browser pane at 390px and 320px when UI changed → secret scan → commit and push → `npx wrangler deploy` → restart `npx wrangler tail motus --format pretty` (it stops following after every deploy) → update `.handoff/`.
 
 ## Current status
-- Built and tested locally (2026-10-27): email-code sign-in, sessions, Connect Hevy (opens Hevy's key page, Paste key, server checks and syncs in the background via /v1/workouts/events), Connect Apple Health (Shortcut token, upload endpoint, return to Connect), imports saved to the account, sign out/in, delete account, cron. 173 automated checks pass (45 run the server on a real SQLite database); the whole flow was also run on `wrangler dev` in the Browser pane, with the Shortcut's upload simulated by curl.
-- **Deployed 2026-10-27** after the owner logged in to Cloudflare: database created and tables applied, `HEVY_SECRET` and `CODE_PEPPER` set (random, never displayed), Worker live. Checked live: pages load, signed-out and cross-site requests refused, fake Shortcut token refused. `RESEND_API_KEY` added by the owner 2026-10-27 (through their own terminal). **The owner signed in on the live app with a real emailed code** (their words: "The code arrived and I'm signed in."). Without a verified domain in Resend, codes only reach the Resend account's own address, so nobody else can sign in yet.
-- **The Motus Shortcut isn't built yet:** only the owner can build it on an iPhone (public/shortcut.html); then its iCloud link goes into `SHORTCUT_URL` in `public/js/account.js`.
-- Hevy with a real key and the real Shortcut on a real iPhone are not tested.
-- Cloudflare free plan: 10 ms CPU per request/cron; Hevy syncs are done in small steps for that reason. With real users, the $5/month Workers plan removes the risk.
+- **Live and working for the owner:** email-code sign-in (codes sent from the owner's Gmail through an Apps Script web app, D-023), sessions, Connect Apple Health through the Motus Shortcut (Finish → Health permission → upload), Home filled from real Health data (21–28 Oct 2026 stored, Hijri dates converted, D-024).
+- **Shortcut v2 is built, signed and deployed but not yet installed by the owner** (`fd29eb5`): one Shortcut, two modes. Run from **Finish** (it gets text input) → reads the last 30 days; run by the daily automation or a tap (no input) → last 2 days, plus 7 days of food and weight. Steps and Active Calories go sample by sample with their Source; the server keeps the busiest source per day, which fixes the owner's "steps are doubled" (iPhone + Watch were summed). Dietary Calories fills missing days with 0 so it no longer stops on "No Samples Found". D-025, D-026.
+- **Temporary download, live now:** https://motus.motusapp.workers.dev/setup/motus-shortcut-signing.mobileconfig and https://motus.motusapp.workers.dev/setup/Motus.shortcut (signing run 40692368432). They are deployed but NOT in git: `public/setup/` is in `.git/info/exclude`, and the uncommitted edit to `public/_headers` (a block marked TEMPORARY) must not be committed.
+- `SHORTCUT_URL` in `public/js/account.js` and the button in `public/shortcut.html` still point to the **old v1** iCloud link `https://www.icloud.com/shortcuts/eb6a8c01f9194356bfac351f9c1c238f` (doubles steps, no 30-day first run).
+- Tests: 197 checks pass (`npm test`: core 43, importers 65, store 20, server 69). Upload reader benchmark: 18,000 samples in ~12–19 ms on the laptop; the free plan allows 10 ms CPU, so a 30-day first upload may hit the limit.
+- Not tested with real data: Hevy (owner won't connect their own key), the daily automation, the v2 Shortcut.
+- A background `wrangler tail` was running in the old session; it does not survive a new session.
 
 ## Next action
-**Motus Shortcut:** generated (`node tools/shortcut/build.mjs`), unsigned. Signing blocked (GitHub Mac has no iCloud; HubSign behind a bot check). Next: owner chooses — build by hand on iPhone with Claude guiding, or any Mac with iCloud runs `shortcuts sign --mode anyone`. Deploy fbeb46a (kJ) needs the owner's OK. Owner still to test the live app.
+Wait for the owner to install v2 on the iPhone: remove the old signing profile → install the new profile and turn on full trust (Settings → General → About → Certificate Trust Settings) → delete the old Motus shortcut → add the new one keeping the name exactly "Motus" → tap Finish in Motus → Connect → Share → Copy iCloud Link. Then: check the log/D1 (counts only, never values) that 30 days arrived and steps are no longer doubled; put the new link into `SHORTCUT_URL` and `public/shortcut.html`; delete `public/setup/`, revert `public/_headers` (`git checkout public/_headers`); deploy; commit. If the upload fails on CPU, tell the owner the fix is Workers Paid ($5/month).
 
 ## Open questions waiting on the owner
+- The v2 iCloud link (after they install it).
 - Archive or delete `alyamiMohd/motus-sync`? Default: leave it until asked.
-- A domain (for code emails to everyone and a nice address). Licence. Keep `.handoff/` public.
+- A domain (for code emails from Motus and a nice address); maybe Cloudflare Email later. Workers Paid when real users come. Licence. Keep `.handoff/` public (repo is public; owner knows).
 
 ## Last thing in progress
-Session 2: owner said not to connect their own accounts; Claude tested everything locally (mock Hevy, simulated uploads) and fixed two issues (D-020, D-021). Owner's last message: "just test everything by you, then I will test it after you have verified its working." Deployed 17389fd on the owner's OK (their terminal; wrangler login renewed). Waiting: what the "Health to Drive" Shortcut link is for.
+Owner's last messages: "if it already exists don't make it no more, but how, When I click finish does it invoke another shortcut? or just the shortcut "Motus" that i shared the link with u". Claude answered: Finish runs the same "Motus" Shortcut via `shortcuts://run-shortcut?name=Motus&input=text&text=<url>|<token>`; with input it saves motus.txt and reads 30 days, without input it reads motus.txt and 2 days; the link they shared before is v1, so they must install the new one from /setup/. No separate "Starter Motus" will be made. Then the owner ran `/handoff` (this save).
