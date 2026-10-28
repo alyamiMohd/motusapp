@@ -21,6 +21,7 @@ export const digits = s => String(s ?? "").replace(/[٠-٩]/g, c => c.charCodeAt
   .replace(/[۰-۹]/g, c => c.charCodeAt(0) - 0x6F0).replace(/٫/g, ".").replace(/[٬  ]/g, "");
 
 export function num(s) {
+  if (typeof s === "string" && /^\d+(\.\d+)?$/.test(s)) return +s;      // the usual case, without the clean-up below
   let t = digits(s).trim().replace(/[^\d.,\-]/g, "");
   if (!t) return null;
   if (t.includes(",") && t.includes(".")) t = t.lastIndexOf(",") > t.lastIndexOf(".") ? t.replace(/\./g, "").replace(",", ".") : t.replace(/,/g, "");
@@ -39,6 +40,7 @@ const UMM_AL_QURA = (() => {
   } catch (e) { return null; }
 })();
 export const HIJRI_EXACT = !!UMM_AL_QURA;
+const HIJRI_DAYS = new Map();
 function fromHijri(y, m, d) {
   if (UMM_AL_QURA) {                                  // a first guess from the mean month, then the exact day nearby
     const guess = Date.UTC(622, 6, 19) + Math.round((y - 1) * 354.36667 + (m - 1) * 29.53059 + (d - 1)) * DAY;
@@ -59,7 +61,8 @@ function when(s) {
   if (!m) return null;
   let y = +m[1], mo = +m[2], d = +m[3];
   if (y < 1700 && mo >= 1 && mo <= 12 && d >= 1 && d <= 30) {
-    const g = fromHijri(y, mo, d);
+    const k = y * 10000 + mo * 100 + d;                 // thousands of samples share a few dozen days: convert each once
+    const g = HIJRI_DAYS.get(k) || HIJRI_DAYS.set(k, fromHijri(y, mo, d)).get(k);
     y = g.getUTCFullYear(); mo = g.getUTCMonth() + 1; d = g.getUTCDate();
   } else if (y > 2400) y -= 543;
   const ms = Date.UTC(y, mo - 1, d, +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
@@ -77,7 +80,39 @@ const toKg = (v, unit) => { const u = UNIT.find(([re]) => re.test(String(unit ||
 
 function fromShortcut(p) {
   const days = {}, put = (d, k, v) => { (days[d] || (days[d] = {}))[k] = v; };
-  for (const [field, key] of [["steps", "steps"], ["calories", "calories"], ["active", "active_kcal"]]) {
+  const v2 = String(p.v) === "2";
+  const kcal = (n, u) => (/^(kj|كج)/i.test(u || "") ? n / 4.184 : n);
+  if (v2) {
+    // v2 sends Steps and Active Calories sample by sample with their source ("time|value|source", active also
+    // "|unit" before the source): per day the busiest source wins, so an iPhone and a Watch counting the same walk
+    // aren't added together (Shortcuts' own "group by day" adds them up).
+    const dayOf = new Map();          // only the day matters here, and thousands of samples share a few dozen days
+    const dateOf = t => { const k = t.slice(0, 10); let v = dayOf.get(k); if (v === undefined) { const w = when(k); dayOf.set(k, v = w ? w.date : null); } return v; };
+    for (const [field, key, hasUnit] of [["steps", "steps", false], ["active", "active_kcal", true]]) {
+      const bySrc = {}, text = String(p[field] || "");
+      // walked by hand rather than split into arrays: a first run can send thousands of lines
+      for (let i = 0; i < text.length;) {
+        let j = text.indexOf("\n", i);
+        if (j < 0) j = text.length;
+        const line = text.charCodeAt(j - 1) === 13 ? text.slice(i, j - 1) : text.slice(i, j);
+        i = j + 1;
+        const a = line.indexOf("|"), b = a < 0 ? -1 : line.indexOf("|", a + 1);
+        if (a < 0) continue;
+        const v = line.slice(a + 1, b < 0 ? undefined : b);
+        let n = +v;
+        if (!v.length || n !== n) n = num(v);           // plain numbers parse directly; "1,234", Arabic digits etc. take the slow road
+        const date = dateOf(line.slice(0, a).trim());
+        if (!date || n == null) continue;
+        let unit = "", src = b < 0 ? "" : line.slice(b + 1);
+        if (hasUnit) { const c = src.indexOf("|"); unit = c < 0 ? src : src.slice(0, c); src = c < 0 ? "" : src.slice(c + 1); }
+        src = src.trim() || "?";
+        const day = bySrc[date] || (bySrc[date] = {});
+        day[src] = (day[src] || 0) + kcal(n, unit.trim());
+      }
+      for (const [d, s] of Object.entries(bySrc)) put(d, key, Math.round(Math.max(...Object.values(s))));
+    }
+  }
+  for (const [field, key] of (v2 ? [["calories", "calories"]] : [["steps", "steps"], ["calories", "calories"], ["active", "active_kcal"]])) {
     // an optional third field is the unit: phones set to kilojoules send kJ
     for (const [d, v, u] of lines(p[field])) { const w = when(d), n = num(v); if (w && n != null) put(w.date, key, Math.round(/^(kj|كج)/i.test(u || "") ? n / 4.184 : n)); }
   }

@@ -45,17 +45,18 @@ const act = (id, params) => ({ WFWorkflowActionIdentifier: "is.workflow.actions.
 const uuidOf = a => a.WFWorkflowActionParameters.UUID;
 const setVar = (name, ref) => act("setvariable", { WFInput: attach(ref), WFVariableName: name });
 
-function ifHasInput(body) {             // If Shortcut Input has any value … End If
+function ifHasInput(body, otherwise) {   // If Shortcut Input has any value … [Otherwise …] End If
   const g = uid();
   return [
     act("conditional", { GroupingIdentifier: g, WFCondition: 100, WFControlFlowMode: 0,
       WFInput: { Type: "Variable", Variable: attach(INPUT) } }),
     ...body,
+    ...(otherwise ? [act("conditional", { GroupingIdentifier: g, WFControlFlowMode: 1 }), ...otherwise] : []),
     act("conditional", { GroupingIdentifier: g, WFControlFlowMode: 2, UUID: uid() }),
   ];
 }
 
-function findSamples(label, days, groupByDay) {
+function findSamples(label, days, groupByDay, fillMissing = false) {
   const p = {
     UUID: uid(),
     WFContentItemFilter: {
@@ -75,7 +76,7 @@ function findSamples(label, days, groupByDay) {
     WFContentItemSortOrder: "Oldest First",
     WFContentItemLimitEnabled: false,
     WFContentItemLimitNumber: 20,
-    WFHKSampleFilteringFillMissing: false,
+    WFHKSampleFilteringFillMissing: fillMissing,
   };
   if (groupByDay) p.WFHKSampleFilteringGroupBy = "Day";
   return act("filter.health.quantity", p);
@@ -89,8 +90,8 @@ const formatDate = (src, pattern) => act("format.date", {
 
 // One Health type -> a text variable with one "a|b|c" line per sample (or per day when grouped).
 // fields: list of detail names; dates are formatted with `pattern`.
-function healthBlock(varName, label, days, groupByDay, fields, pattern) {
-  const find = findSamples(label, days, groupByDay);
+function healthBlock(varName, label, days, groupByDay, fields, pattern, fillMissing = false) {
+  const find = findSamples(label, days, groupByDay, fillMissing);
   const g = uid(), endUUID = uid();
   const inner = [], parts = [];
   fields.forEach((f, i) => {
@@ -126,23 +127,30 @@ export function build() {
   const first = act("getitemfromlist", { UUID: uid(), WFItemSpecifier: "First Item", WFInput: attach(out(uuidOf(split), "Split Text")) });
   const last = act("getitemfromlist", { UUID: uid(), WFItemSpecifier: "Last Item", WFInput: attach(out(uuidOf(split), "Split Text")) });
 
-  // 2. Read Health
+  // 2. Read Health. The first run (from Finish, so with input) fills the last 30 days; every later run (the daily
+  //    automation, or a tap) only the last 2, plus a week of food and weight to catch late entries.
   const DAY = "yyyy-MM-dd", MIN = "yyyy-MM-dd HH:mm";
-  const health = [
-    ...healthBlock("Steps", "Steps", 7, true, ["Start Date", "Value"], DAY),
-    // the picker shows "Dietary Energy" but stores "Dietary Calories" (seen in the owner's re-shared Shortcut, 2026-10-28)
-    ...healthBlock("Calories", "Dietary Calories", 7, true, ["Start Date", "Value", "Unit"], DAY),
-    ...healthBlock("Active", "Active Calories", 7, true, ["Start Date", "Value", "Unit"], DAY),
-    ...healthBlock("Weight", "Weight", 7, false, ["Start Date", "Value", "Unit"], MIN),
-    ...healthBlock("Sleep", "Sleep", 2, false, ["Start Date", "End Date", "Value", "Source"], MIN),
+  const read = w => [
+    // v2: Steps and Active Calories go sample by sample with their source. Grouping by day in Shortcuts adds every
+    // source together (an iPhone and a Watch counting the same walk double); the server keeps the busiest source per
+    // day instead, as the Health app roughly does.
+    ...healthBlock("Steps", "Steps", w.move, false, ["Start Date", "Value", "Source"], MIN),
+    // the picker shows "Dietary Energy" but stores "Dietary Calories" (seen in the owner's re-shared Shortcut, 2026-10-28);
+    // Fill Missing: days with nothing logged come back as 0 instead of a "No Samples Found" stop
+    ...healthBlock("Calories", "Dietary Calories", w.food, true, ["Start Date", "Value", "Unit"], DAY, true),
+    ...healthBlock("Active", "Active Calories", w.move, false, ["Start Date", "Value", "Unit", "Source"], MIN),
+    ...healthBlock("Weight", "Weight", w.food, false, ["Start Date", "Value", "Unit"], MIN),
+    ...healthBlock("Sleep", "Sleep", w.move, false, ["Start Date", "End Date", "Value", "Source"], MIN),
   ];
+  const FIRST = { move: 30, food: 30 }, DAILY = { move: 2, food: 7 };
+  const health = ifHasInput(read(FIRST), read(DAILY));
 
   // 3. Send
   const post = act("downloadurl", {
     UUID: uid(), Advanced: true, ShowHeaders: true, WFURL: text(named("Address")), WFHTTPMethod: "POST",
     WFHTTPHeaders: dictItems([["Authorization", text("Bearer ", named("Token"))]]),
     WFHTTPBodyType: "JSON",
-    WFJSONValues: dictItems([["v", text("1")], ...["Steps", "Calories", "Active", "Weight", "Sleep"]
+    WFJSONValues: dictItems([["v", text("2")], ...["Steps", "Calories", "Active", "Weight", "Sleep"]
       .map(k => [k.toLowerCase(), text(named(k))])]),
   });
   const back = act("text.replace", { UUID: uid(), WFInput: text(named("Address")),

@@ -187,9 +187,16 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
   const labels = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("filter.health.quantity"))
     .map(a => a.WFWorkflowActionParameters.WFContentItemFilter.Value.WFActionParameterFilterTemplates[0].Values.Enumeration.Value);
   check("Shortcut sends exactly the fields the server reads", keys.join() === "v,steps,calories,active,weight,sleep" && post.WFHTTPMethod === "POST");
-  check("Shortcut reads the five Health types", labels.join() === "Steps,Dietary Calories,Active Calories,Weight,Sleep");
+  const FIVE = "Steps,Dietary Calories,Active Calories,Weight,Sleep";
+  check("Shortcut reads the five Health types, once for the first run and once for daily runs", labels.join() === FIVE + "," + FIVE);
+  const days = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("filter.health.quantity"))
+    .map(a => a.WFWorkflowActionParameters.WFContentItemFilter.Value.WFActionParameterFilterTemplates[1].Values.Number).join();
+  check("first run reads 30 days of everything; daily runs 2 days (a week of food and weight)", days === "30,30,30,30,30,2,7,2,7,2", days);
+  const grouped = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("filter.health.quantity")).map(a => a.WFWorkflowActionParameters.WFHKSampleFilteringGroupBy || "-").join();
+  check("only Dietary Energy is grouped by day (and fills missing days); steps and active go sample by sample", grouped === "-,Day,-,-,-,-,Day,-,-,-" &&
+    acts.filter(a => a.WFWorkflowActionParameters.WFHKSampleFilteringGroupBy).every(a => a.WFWorkflowActionParameters.WFHKSampleFilteringFillMissing === true));
   const open = (kind, mode) => ids.filter((id, i) => id.endsWith(kind) && acts[i].WFWorkflowActionParameters.WFControlFlowMode === mode).length;
-  check("Shortcut: every If and Repeat is closed", open("conditional", 0) === open("conditional", 2) && open("repeat.each", 0) === open("repeat.each", 2) && open("repeat.each", 0) === 5);
+  check("Shortcut: every If and Repeat is closed", open("conditional", 0) === open("conditional", 2) && open("repeat.each", 0) === open("repeat.each", 2) && open("repeat.each", 0) === 10 && open("conditional", 1) === 1);
   const uuids = new Set(acts.map(a => a.WFWorkflowActionParameters.UUID).filter(Boolean));
   const refs = [...JSON.stringify(wf).matchAll(/"OutputUUID":"([^"]+)"/g)].map(m => m[1]);
   check("Shortcut: every variable points at an action that exists", refs.length > 20 && refs.every(u => uuids.has(u)));
@@ -202,6 +209,26 @@ check("upload reader alone: nothing usable -> error", (() => { try { readHealthU
     sleep: "1448-05-16 23:00|1448-05-17 06:00|Core|Watch" });
   check("Hijri dates become Gregorian (also with Arabic digits)", h["2026-10-28"].steps === 500 && h["2026-10-21"].steps === 8120 &&
     h["2026-10-21"].weight_kg === 64 && h["2026-10-28"].sleep_hours === 7 && !Object.keys(h).some(k => k < "2000"), JSON.stringify(Object.keys(h)));
+  // v2: steps and active energy sample by sample with their source; the busiest source per day wins
+  const v2 = readHealthUpload({ v: "2",
+    steps: ["2026-10-27 09:00|3000|iPhone", "2026-10-27 18:00|2000|iPhone", "2026-10-27 09:00|4500|Apple Watch", "2026-10-27 18:10|1000|Apple Watch",
+            "1448-05-17 08:00|900|iPhone"].join("\n"),
+    active: "2026-10-27 09:00|200|kcal|Apple Watch\n2026-10-27 10:00|1255|kJ|Apple Watch\n2026-10-27 09:00|150|kcal|iPhone",
+    calories: "2026-10-27|1300|Cal\n2026-10-26|0|Cal" });
+  check("v2: iPhone and Watch on the same day aren't added together (Watch 5,500 beats iPhone 5,000)", v2["2026-10-27"].steps === 5500 && v2["2026-10-28"].steps === 900);
+  check("v2: active energy per source, kJ converted (200 + 300 beats 150)", v2["2026-10-27"].active_kcal === 500);
+  check("v2: food still daily; a filled-in 0 day stays empty", v2["2026-10-27"].calories === 1300 && !(v2["2026-10-26"] && v2["2026-10-26"].calories));
+  {
+    // a first run: 30 days x 2 devices x 150 samples, Hijri dates, must stay well inside the free plan's 10 ms
+    const big = [];
+    for (let d = 1; d <= 30; d++) for (const src of ["iPhone", "Apple Watch"]) for (let i = 0; i < 150; i++)
+      big.push(`1448-04-${String(d).padStart(2, "0")} ${String(6 + (i % 16)).padStart(2, "0")}:${String(i % 60).padStart(2, "0")}|${20 + i}|${src}`);
+    const payload = { v: "2", steps: big.join("\n"), active: "", calories: "", weight: "", sleep: "" };
+    readHealthUpload(payload);                                   // warm up, as a running Worker would be
+    const t0 = performance.now(), out = readHealthUpload(payload), ms = performance.now() - t0;
+    console.log(`    (9,000 step samples read in ${ms.toFixed(1)} ms)`);
+    check("a 30-day first run (9,000 samples) is read quickly", Object.keys(out).length === 30 && ms < 25, ms.toFixed(1) + " ms");
+  }
   const b = readHealthUpload({ steps: "2569-10-28|100" });
   check("Thai Buddhist years become Gregorian", b["2026-10-28"].steps === 100);
   check("a month boundary in Hijri lands right (1448-06-01 = 2026-11-11)", readHealthUpload({ steps: "1448-06-01|1" })["2026-11-11"] !== undefined);

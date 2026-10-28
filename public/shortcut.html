@@ -14,51 +14,32 @@
 <main class="connect">
   <h1>The Motus Shortcut</h1>
   <p class="lead">Add it in one tap: <a class="btn" href="https://www.icloud.com/shortcuts/eb6a8c01f9194356bfac351f9c1c238f">Add the Motus Shortcut</a></p>
-  <p class="note">Then go to Motus → Connect → <b>Finish</b> under Apple Health. Below is what it does and how it's made, for anyone who wants to check it or build their own; it uses only Apple's own Shortcuts actions, no other app.</p>
+  <p class="note">Then go to Motus → Connect → <b>Finish</b> under Apple Health. It uses only Apple's own Shortcuts actions, no other app.</p>
 
   <section class="app" aria-labelledby="h-what">
     <h2 id="h-what">What it does</h2>
-    <p class="what">Reads the last days of Steps, Dietary Energy, Active Energy, Weight and Sleep from Apple Health and sends them to your Motus account. Motus → Connect → <b>Finish</b> runs it the first time with your account's address and token, which it keeps in a small file. After that a daily automation runs it by itself.</p>
-  </section>
-
-  <section class="app" aria-labelledby="h-make">
-    <h2 id="h-make">Make it</h2>
-    <p class="note">Open <b>Shortcuts</b>, tap <b>+</b>, name it exactly <b>Motus</b>. Add these actions in order (search for each name). “→ Set Variable” means: add <b>Set Variable</b> after it, with that name.</p>
-    <h3>1. Remember where to send</h3>
-    <ol class="steps">
-      <li><b>If</b>: <i>Shortcut Input</i> <b>has any value</b>.</li>
-      <li>Inside the If: <b>Save File</b>: save <i>Shortcut Input</i>; turn <b>Ask Where to Save</b> off; <b>Destination Path</b> <code>motus.txt</code>; <b>Overwrite If File Exists</b> on.</li>
-      <li>After <b>End If</b>: <b>Get File</b> from the <b>Shortcuts</b> folder, path <code>motus.txt</code>.</li>
-      <li><b>Split Text</b>: split the file by <b>Custom</b> <code>|</code>.</li>
-      <li><b>Get Item from List</b>: <b>First Item</b> → Set Variable <code>Address</code>. Then <b>Get Item from List</b>: <b>Last Item</b> of the split text → Set Variable <code>Token</code>.</li>
-    </ol>
-    <h3>2. Read Health (steps first, then the same for the others)</h3>
-    <ol class="steps">
-      <li><b>Find Health Samples</b> where <b>Type</b> is <b>Steps</b> and <b>Start Date</b> is in the last <b>7 days</b>; <b>Group By</b>: <b>Day</b>.</li>
-      <li><b>Repeat with Each</b> item in Health Samples.</li>
-      <li>Inside: <b>Text</b>: <i>Repeat Item</i> → <b>Start Date</b> (tap it, Date Format <b>Custom</b> <code>yyyy-MM-dd</code>), then <code>|</code>, then <i>Repeat Item</i> → <b>Value</b>.</li>
-      <li>After <b>End Repeat</b>: <b>Combine Text</b>: <i>Repeat Results</i> with <b>New Lines</b> → Set Variable <code>Steps</code>.</li>
-    </ol>
     <ul class="kv">
-      <li><span>Dietary Energy → <code>Calories</code></span> exactly like Steps (7 days, grouped by day). Pick it from the list yourself: Shortcuts stores it as “Dietary Calories”.</li>
-      <li><span>Active Calories → <code>Active</code></span> exactly like Steps (in the Health app it is called Active Energy).</li>
-      <li><span>Weight → <code>Weight</code></span> last 7 days, <b>no grouping</b>; the Text is Start Date (Custom <code>yyyy-MM-dd HH:mm</code>) <code>|</code> Value <code>|</code> Unit.</li>
-      <li><span>Sleep Analysis → <code>Sleep</code></span> last 2 days, no grouping; the Text is Start Date <code>|</code> End Date (both Custom <code>yyyy-MM-dd HH:mm</code>) <code>|</code> Value <code>|</code> Source.</li>
+      <li><span>Reads</span> Steps, Active Energy, Dietary Energy, Weight and Sleep from Apple Health. Nothing else: no heart rate, workouts, medical records or location, and it never changes anything in Health.</li>
+      <li><span>First run</span> (from <b>Finish</b>): the last <b>30 days</b>, to fill your charts. It can take a minute on a phone with lots of data.</li>
+      <li><span>Every run after</span> (the daily automation, or a tap): the last 2 days, and a week of food and weight to catch late entries.</li>
+      <li><span>iPhone and Watch</span> Steps and energy go sample by sample with their source, so Motus can count the busiest device each day instead of adding the two together.</li>
+      <li><span>Where it sends</span> Only to your Motus account. <b>Finish</b> gives it your account's address and a private token, kept in a small file (<code>motus.txt</code>) in the Shortcuts folder. <b>Disconnect</b> in Motus cancels the token.</li>
     </ul>
-    <h3>3. Send</h3>
-    <ol class="steps">
-      <li><b>Get Contents of URL</b>: URL <i>Address</i>; Method <b>POST</b>; Header <code>Authorization</code> = <code>Bearer </code><i>Token</i>; Request Body <b>JSON</b> with the Text fields <code>steps</code>, <code>calories</code>, <code>active</code>, <code>weight</code>, <code>sleep</code> set to the variables above.</li>
-      <li><b>If</b> <i>Shortcut Input</i> <b>has any value</b>: <b>Replace Text</b> <code>/api/upload</code> with <code>/connect.html?health=done</code> in <i>Address</i>, then <b>Open URLs</b> with the result. (That brings you back to Motus after Finish.)</li>
-    </ol>
   </section>
 
-  <section class="app" aria-labelledby="h-test">
-    <h2 id="h-test">Try it and share it</h2>
+  <section class="app" aria-labelledby="h-auto">
+    <h2 id="h-auto">Make it run by itself</h2>
     <ol class="steps">
-      <li>In Motus → Connect, sign in and tap <b>Finish</b> under Apple Health. Allow Health (turn every type on), the file and the connection. You land back on Connect with “Apple Health is connected”.</li>
-      <li>Home should now show today's and the last days' numbers.</li>
-      <li>To share it with everyone: in Shortcuts, long-press <b>Motus</b> → <b>Share</b> → <b>Copy iCloud Link</b>. The link holds no account details (those live in the file on each phone).</li>
+      <li>In <b>Shortcuts</b>, open <b>Automation</b> and tap <b>+</b>.</li>
+      <li>Choose <b>Time of Day</b>, a morning time, <b>Daily</b>.</li>
+      <li>Choose <b>Run Immediately</b>, then the <b>Motus</b> shortcut.</li>
     </ol>
+    <p class="note">If the Shortcut ever says it can't read a type, open the Health app → your picture → <b>Apps</b> → <b>Shortcuts</b> and turn that type on.</p>
+  </section>
+
+  <section class="app" aria-labelledby="h-code">
+    <h2 id="h-code">How it's made</h2>
+    <p class="note">The Shortcut is generated from <a href="https://github.com/alyamiMohd/motusapp/blob/main/tools/shortcut/build.mjs">tools/shortcut/build.mjs</a>, so every action can be read there.</p>
   </section>
 
   <p class="foot"><a href="connect.html#live-health">← Back to Connect</a></p>
