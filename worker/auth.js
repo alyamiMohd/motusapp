@@ -7,7 +7,8 @@ export const normEmail = e => String(e || "").trim().toLowerCase();
 const validEmail = e => e.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 const codeHash = (env, email, code) => sha256(`${email}|${code}|${env.CODE_PEPPER || ""}`);
 
-// The code goes out through Brevo (BREVO_API_KEY) or Resend (RESEND_API_KEY), whichever is set; Brevo first.
+// The code goes out through the owner's Gmail (GMAIL_SCRIPT_URL + GMAIL_SECRET), Brevo (BREVO_API_KEY) or Resend
+// (RESEND_API_KEY), the first one that is set.
 // EMAIL_FROM ("Motus <someone@example.com>", a sender verified with the provider) is a secret, so the address
 // stays out of the public repo. Only the status and error type of a refusal are logged, never the address.
 const parseFrom = from => { const m = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(from || ""); return m ? { name: m[1] || "Motus", email: m[2] } : { name: "Motus", email: String(from || "").trim() }; };
@@ -17,6 +18,17 @@ const body = code => `Your Motus sign-in code is ${code}\n\nIt works for ${CODE_
 async function sendCode(env, email, code) {
   if (typeof env.CODE_SINK === "function") return env.CODE_SINK(email, code);   // tests only (real settings are never functions)
   const fetchFn = env.FETCH || fetch;
+  if (env.GMAIL_SCRIPT_URL && env.GMAIL_SECRET) {          // the owner's own Gmail, through tools/gmail-sender/Code.gs
+    let reply = null;
+    try {
+      const res = await fetchFn(env.GMAIL_SCRIPT_URL, { method: "POST", redirect: "follow", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ secret: env.GMAIL_SECRET, to: email, code }) });
+      reply = await res.json().catch(() => null);
+      if (!res.ok || !reply || !reply.ok) console.log("gmail script refused:", res.status, (reply && reply.error) || "");
+    } catch (e) { console.log("gmail script unreachable"); }
+    if (reply && reply.ok) return;
+    throw new Error(reply && reply.error === "quota" ? "Motus has sent all its codes for today. Try again tomorrow." : "Couldn't send the email. Try again in a minute.");
+  }
   if (env.BREVO_API_KEY) {
     if (!env.EMAIL_FROM) throw new Error("Email isn't set up on this server yet.");
     const res = await fetchFn("https://api.brevo.com/v3/smtp/email", {

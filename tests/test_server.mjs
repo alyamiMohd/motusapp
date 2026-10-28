@@ -218,6 +218,27 @@ section("sending the code");
     logs.some(l => /brevo refused: 401 unauthorized/.test(l)) && !logs.some(l => l.includes("sam@")));
   r = await start("x@example.com", { ...mail, EMAIL_FROM: undefined, DB: d1() });
   check("Brevo without a sender: says email isn't set up", r.status === 503 && /isn't set up/.test(r.json.error));
+
+  // the owner's Gmail through tools/gmail-sender/Code.gs (comes first when set)
+  const calls = [];
+  let gmailReply = { ok: true };
+  const gmail = { DB: d1(), HEVY_SECRET: env.HEVY_SECRET, GMAIL_SCRIPT_URL: "https://script.google.com/macros/s/TEST/exec", GMAIL_SECRET: "s".repeat(40),
+    BREVO_API_KEY: "xkeysib-test", EMAIL_FROM: "Motus <owner@example.com>",
+    FETCH: async (url, opt) => { calls.push({ url, opt }); return Response.json(gmailReply); } };
+  r = await start("Nour@Example.com", gmail);
+  const g = JSON.parse(calls[0].opt.body);
+  check("Gmail: used before Brevo, one POST with the secret, the address and a 6-digit code", r.status === 200 && calls.length === 1 &&
+    calls[0].url === gmail.GMAIL_SCRIPT_URL && g.secret === gmail.GMAIL_SECRET && g.to === "nour@example.com" && /^\d{6}$/.test(g.code));
+  gmailReply = { ok: false, error: "quota" };
+  r = await start("omar@example.com", { ...gmail, DB: d1() });
+  check("Gmail out of today's quota: says so", r.status === 503 && /all its codes for today/.test(r.json.error));
+  gmailReply = { ok: false, error: "forbidden" };
+  r = await start("omar@example.com", { ...gmail, DB: d1() });
+  check("Gmail refusing (wrong secret): a calm message", r.status === 503 && /Couldn't send/.test(r.json.error));
+  const { readFileSync } = await import("node:fs");
+  const gs = readFileSync(new URL("../tools/gmail-sender/Code.gs", import.meta.url), "utf8");
+  check("the committed Gmail script holds no real secret, and only sends the fixed code email", /var SECRET = 'REPLACE_WITH_SECRET';/.test(gs) &&
+    /SECRET\.length < 32/.test(gs) && /\^\\d\{6\}\$/.test(gs) && (gs.match(/MailApp\.sendEmail/g) || []).length === 1);
 }
 
 finish();

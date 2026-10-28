@@ -22,3 +22,6 @@ Thumbs.db
 .dev.vars
 .wrangler/
 tools/shortcut/dist/
+
+# the owner's Gmail sender with its real secret filled in
+tools/gmail-sender/Code.local.gs
