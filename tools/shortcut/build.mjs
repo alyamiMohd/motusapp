@@ -4,7 +4,7 @@
 //
 // What it does, matching public/shortcut.html and readHealthUpload in public/js/health.js:
 //   Finish in Motus runs it with "<upload url>|<token>" as input; it keeps that in motus.txt (Shortcuts folder).
-//   Every run reads Steps, Dietary Energy, Active Calories (Health's own daily totals: Group By Day, deduplicated
+//   Every run reads Steps, Dietary Calories, Active Calories (Health's own daily totals: Group By Day, deduplicated
 //   across iPhone and Watch), Weight and Sleep (raw samples), and POSTs them as text lines to the upload URL.
 //
 // The plist format is not documented by Apple. Every action shape here was copied from real iOS exports:
@@ -130,7 +130,7 @@ export function build() {
   const DAY = "yyyy-MM-dd", MIN = "yyyy-MM-dd HH:mm";
   const health = [
     ...healthBlock("Steps", "Steps", 7, true, ["Start Date", "Value"], DAY),
-    ...healthBlock("Calories", "Dietary Energy", 7, true, ["Start Date", "Value", "Unit"], DAY),
+    ...healthBlock("Calories", "Dietary Calories", 7, true, ["Start Date", "Value", "Unit"], DAY),
     ...healthBlock("Active", "Active Calories", 7, true, ["Start Date", "Value", "Unit"], DAY),
     ...healthBlock("Weight", "Weight", 7, false, ["Start Date", "Value", "Unit"], MIN),
     ...healthBlock("Sleep", "Sleep", 2, false, ["Start Date", "End Date", "Value", "Source"], MIN),

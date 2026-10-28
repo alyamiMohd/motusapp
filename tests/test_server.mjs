@@ -187,7 +187,7 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
   const labels = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("filter.health.quantity"))
     .map(a => a.WFWorkflowActionParameters.WFContentItemFilter.Value.WFActionParameterFilterTemplates[0].Values.Enumeration.Value);
   check("Shortcut sends exactly the fields the server reads", keys.join() === "v,steps,calories,active,weight,sleep" && post.WFHTTPMethod === "POST");
-  check("Shortcut reads the five Health types", labels.join() === "Steps,Dietary Energy,Active Calories,Weight,Sleep");
+  check("Shortcut reads the five Health types", labels.join() === "Steps,Dietary Calories,Active Calories,Weight,Sleep");
   const open = (kind, mode) => ids.filter((id, i) => id.endsWith(kind) && acts[i].WFWorkflowActionParameters.WFControlFlowMode === mode).length;
   check("Shortcut: every If and Repeat is closed", open("conditional", 0) === open("conditional", 2) && open("repeat.each", 0) === open("repeat.each", 2) && open("repeat.each", 0) === 5);
   const uuids = new Set(acts.map(a => a.WFWorkflowActionParameters.UUID).filter(Boolean));
