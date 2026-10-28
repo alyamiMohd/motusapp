@@ -12,7 +12,7 @@
 import { start, verify, logout, sessionUser } from "./auth.js";
 import * as hevy from "./hevy.js";
 import { mergeSource } from "../public/js/merge.js";
-import { readHealthUpload } from "../public/js/health.js";
+import { readHealthUpload, HIJRI_EXACT } from "../public/js/health.js";
 import { sha256, token, allow, json, fail } from "./util.js";
 
 const DEVICE_SOURCES = ["manual", "apple", "mfp", "csv", "hevy", "strong"];
@@ -154,8 +154,19 @@ async function upload(req, env) {
   const row = await env.DB.prepare("SELECT user_id FROM upload_tokens WHERE token_hash = ?").bind(hash).first();
   if (!row) return fail(401, "This Shortcut isn't connected any more. Set up Apple Health again in Motus → Connect.");
   if (!(await allow(env.DB, "upload:" + hash, 60, 3600))) return fail(429, "Too many uploads. Try again later.");
-  let days;
-  try { days = readHealthUpload(await body(req)); } catch (e) { return fail(400, e.message); }
+  let days, payload;
+  try { payload = await body(req); days = readHealthUpload(payload); } catch (e) { return fail(400, e.message); }
+  // Diagnostics while the Shortcut is new: the SHAPE of each field (line count, first line with every digit masked
+  // and every letter masked except in units), never the values, dates or device names.
+  if (payload && typeof payload === "object") {
+    const shape = {};
+    for (const k of ["steps", "calories", "active", "weight", "sleep"]) {
+      if (typeof payload[k] !== "string") { shape[k] = typeof payload[k]; continue; }
+      const ls = payload[k].split(/\r?\n/).filter(Boolean), first = (ls[0] || "").split("|");
+      shape[k] = ls.length + ": " + first.map((f, i) => (k !== "sleep" && i === 2 ? f : f.replace(/[0-9٠-٩]/g, "9").replace(/[^\s9|:.,\-]/g, "a"))).join("|");
+    }
+    console.log("upload shape:", JSON.stringify(shape), "| hijri exact:", HIJRI_EXACT);
+  }
   if (!Object.keys(days).length) return fail(400, "No steps, sleep, calories or weight in this upload.");
   await mergeInto(env, row.user_id, "health", { days });
   await env.DB.prepare("UPDATE upload_tokens SET used = ? WHERE token_hash = ?").bind(Date.now(), hash).run();

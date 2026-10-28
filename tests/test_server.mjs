@@ -196,6 +196,16 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
   check("Shortcut plist is well-formed XML text", /^<\?xml[\s\S]*<\/plist>\n$/.test(toPlist(wf)) && !/[<>]\w*undefined/.test(toPlist(wf)));
 }
 check("upload reader alone: nothing usable -> error", (() => { try { readHealthUpload({ v: 1 }); return false; } catch (e) { return true; } })());
+{
+  // an iPhone set to the Hijri (Umm al-Qura) calendar, as the owner's is: 1448-05-17 = 28 Oct 2026
+  const h = readHealthUpload({ v: "1", steps: "١٤٤٨-٠٥-١٧|500\n1448-05-10|8120", weight: "1448-05-10 07:00|64|كغ",
+    sleep: "1448-05-16 23:00|1448-05-17 06:00|Core|Watch" });
+  check("Hijri dates become Gregorian (also with Arabic digits)", h["2026-10-28"].steps === 500 && h["2026-10-21"].steps === 8120 &&
+    h["2026-10-21"].weight_kg === 64 && h["2026-10-28"].sleep_hours === 7 && !Object.keys(h).some(k => k < "2000"), JSON.stringify(Object.keys(h)));
+  const b = readHealthUpload({ steps: "2569-10-28|100" });
+  check("Thai Buddhist years become Gregorian", b["2026-10-28"].steps === 100);
+  check("a month boundary in Hijri lands right (1448-06-01 = 2026-11-11)", readHealthUpload({ steps: "1448-06-01|1" })["2026-11-11"] !== undefined);
+}
 
 section("sending the code");
 {

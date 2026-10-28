@@ -29,12 +29,41 @@ export function num(s) {
   return Number.isFinite(v) ? v : null;
 }
 
+// A phone set to another calendar writes its dates in it. iPhones in Saudi Arabia are often on Hijri (Umm al-Qura):
+// "1448-05-17" is 28 Oct 2026. Thai Buddhist years are 543 ahead ("2569-10-28"). Both are turned into Gregorian.
+const DAY = 864e5;
+const UMM_AL_QURA = (() => {
+  try {
+    const f = new Intl.DateTimeFormat("en-u-ca-islamic-umalqura", { year: "numeric", month: "numeric", day: "numeric", timeZone: "UTC" });
+    return f.resolvedOptions().calendar === "islamic-umalqura" ? f : null;
+  } catch (e) { return null; }
+})();
+export const HIJRI_EXACT = !!UMM_AL_QURA;
+function fromHijri(y, m, d) {
+  if (UMM_AL_QURA) {                                  // a first guess from the mean month, then the exact day nearby
+    const guess = Date.UTC(622, 6, 19) + Math.round((y - 1) * 354.36667 + (m - 1) * 29.53059 + (d - 1)) * DAY;
+    for (let off = 0; off <= 12; off++) for (const t of [guess + off * DAY, guess - off * DAY]) {
+      const p = {};
+      for (const x of UMM_AL_QURA.formatToParts(new Date(t))) p[x.type] = x.value;
+      if (+p.year === y && +p.month === m && +p.day === d) return new Date(t);
+    }
+  }
+  // tabular (civil) Hijri, for runtimes without that calendar: up to two days off Umm al-Qura
+  const jd = d + Math.ceil(29.5 * (m - 1)) + (y - 1) * 354 + Math.floor((3 + 11 * y) / 30) + 1948439.5 - 1;
+  return new Date(Math.round((jd - 2440587.5) * DAY));
+}
+
 // "2026-10-27", "2026-10-27 07:12", "2026-10-27T07:12:30" -> { date, mins } (mins on a naive clock, for durations)
 function when(s) {
   const m = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(digits(s).trim());
   if (!m) return null;
-  const ms = Date.UTC(+m[1], m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
-  if (isNaN(ms) || new Date(ms).getUTCDate() !== +m[3]) return null;
+  let y = +m[1], mo = +m[2], d = +m[3];
+  if (y < 1700 && mo >= 1 && mo <= 12 && d >= 1 && d <= 30) {
+    const g = fromHijri(y, mo, d);
+    y = g.getUTCFullYear(); mo = g.getUTCMonth() + 1; d = g.getUTCDate();
+  } else if (y > 2400) y -= 543;
+  const ms = Date.UTC(y, mo - 1, d, +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
+  if (isNaN(ms) || new Date(ms).getUTCDate() !== d) return null;
   return { date: new Date(ms).toISOString().slice(0, 10), mins: ms / 60000 };
 }
 const lines = t => String(t || "").split(/\r?\n/).map(l => l.split("|").map(f => f.trim())).filter(f => f[0]);
