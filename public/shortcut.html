@@ -17,7 +17,7 @@
 
   <section class="app" aria-labelledby="h-what">
     <h2 id="h-what">What it does</h2>
-    <p class="what">Reads the last days of Steps, Dietary Energy, Active Energy, Weight and Sleep from Apple Health and sends them to your Motus account. Motus → Connect → <b>Finish</b> runs it the first time with your account's address and token, which it keeps in a small file. After that a daily automation runs it by itself.</p>
+    <p class="what">Reads the last days of Steps, Dietary Energy, Active Calories, Weight and Sleep from Apple Health and sends them to your Motus account. Motus → Connect → <b>Finish</b> runs it the first time with your account's address and token, which it keeps in a small file. After that a daily automation runs it by itself.</p>
   </section>
 
   <section class="app" aria-labelledby="h-make">
@@ -40,7 +40,7 @@
     </ol>
     <ul class="kv">
       <li><span>Dietary Energy → <code>Calories</code></span> exactly like Steps (7 days, grouped by day).</li>
-      <li><span>Active Energy → <code>Active</code></span> exactly like Steps.</li>
+      <li><span>Active Calories → <code>Active</code></span> exactly like Steps (in the Health app it is called Active Energy).</li>
       <li><span>Weight → <code>Weight</code></span> last 7 days, <b>no grouping</b>; the Text is Start Date (Custom <code>yyyy-MM-dd HH:mm</code>) <code>|</code> Value <code>|</code> Unit.</li>
       <li><span>Sleep Analysis → <code>Sleep</code></span> last 2 days, no grouping; the Text is Start Date <code>|</code> End Date (both Custom <code>yyyy-MM-dd HH:mm</code>) <code>|</code> Value <code>|</code> Source.</li>
     </ul>
