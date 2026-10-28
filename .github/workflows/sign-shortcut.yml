@@ -1,0 +1,31 @@
+# Signs the Motus Shortcut with a throwaway certificate for the owner's iPhone (see tools/shortcut/sign-selfsigned.sh).
+# Run by hand only; the result is a workflow artifact kept for 3 days.
+name: Sign Shortcut (self-signed)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sign:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Tools
+        run: sudo apt-get update -q && sudo apt-get install -y -q clang libssl-dev libplist-dev zlib1g-dev
+      - name: shortcut-sign (MIT, pinned)
+        run: |
+          git clone -q https://github.com/0xilis/shortcut-sign.git "$RUNNER_TEMP/shortcut-sign"
+          cd "$RUNNER_TEMP/shortcut-sign"
+          git checkout -q a6b422caad939fc86271e31a9d24fce163455489
+          git submodule update -q --init --recursive
+          git submodule status --recursive
+      - name: Sign
+        run: bash tools/shortcut/sign-selfsigned.sh "$RUNNER_TEMP/shortcut-sign" out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: motus-shortcut
+          path: out/
+          retention-days: 3
