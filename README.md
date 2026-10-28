@@ -50,9 +50,9 @@ On Windows, if the local database fails with `SQLITE_CANTOPEN` (path too long), 
 1. `npx wrangler login` (opens Cloudflare in the browser to allow it).
 2. `npx wrangler d1 create motus`, then put the printed `database_id` in `wrangler.jsonc`.
 3. `npx wrangler d1 execute motus --remote --file worker/schema.sql`
-4. Secrets: `npx wrangler secret put HEVY_SECRET` (32 random bytes, base64), `CODE_PEPPER` (any long random text), `RESEND_API_KEY` (from resend.com).
+4. Secrets: `npx wrangler secret put HEVY_SECRET` (32 random bytes, base64), `CODE_PEPPER` (any long random text), an email key (`BREVO_API_KEY` from brevo.com, free; or `RESEND_API_KEY`), and `EMAIL_FROM` (`Motus <a sender you verified with that provider>`, kept as a secret so the address stays out of the repo).
 5. `npx wrangler deploy` → `https://motus.<your-subdomain>.workers.dev`.
-6. To send codes to everyone (not only the Resend account's own address): add a domain in Resend, verify it, and set `EMAIL_FROM` in `wrangler.jsonc`.
+6. To send codes reliably to everyone: a domain, verified with the email provider, as the `EMAIL_FROM` address. Brevo is tried first when its key is set.
 
 GitHub Pages (`.github/workflows/pages.yml`) keeps publishing `public/` as the app without accounts.
 

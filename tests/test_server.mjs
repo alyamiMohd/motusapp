@@ -197,4 +197,27 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
 }
 check("upload reader alone: nothing usable -> error", (() => { try { readHealthUpload({ v: 1 }); return false; } catch (e) { return true; } })());
 
+section("sending the code");
+{
+  const sent = [], logs = [], realLog = console.log;
+  let brevoStatus = 201;
+  const mail = { DB: d1(), BREVO_API_KEY: "xkeysib-test", EMAIL_FROM: "Motus <owner@example.com>", HEVY_SECRET: env.HEVY_SECRET,
+    FETCH: async (url, opt) => { sent.push({ url, opt }); return new Response(brevoStatus < 300 ? '{"messageId":"x"}' : '{"code":"unauthorized"}', { status: brevoStatus }); } };
+  const start = (email, e = mail) => worker.fetch(new Request(ORIGIN + "/api/auth/start", { method: "POST", headers: { origin: ORIGIN, "content-type": "application/json" },
+    body: JSON.stringify({ email }) }), e, ctx).then(async r => ({ status: r.status, json: await r.json() }));
+  r = await start("Lina@Example.com");
+  const req = sent[0], b = JSON.parse(req.opt.body);
+  check("Brevo: one request to its email API with the key in its header", r.status === 200 && sent.length === 1 && req.url === "https://api.brevo.com/v3/smtp/email" && req.opt.headers["api-key"] === "xkeysib-test");
+  check("Brevo: sender from EMAIL_FROM, recipient, a 6-digit code in subject and text", b.sender.name === "Motus" && b.sender.email === "owner@example.com" &&
+    b.to[0].email === "lina@example.com" && /^Your Motus code: \d{6}$/.test(b.subject) && b.textContent.includes(b.subject.slice(-6)) && b.textContent.includes("\n\n"));
+  console.log = (...a) => logs.push(a.join(" "));
+  brevoStatus = 401;
+  r = await start("sam@example.com");
+  console.log = realLog;
+  check("Brevo refusing: a calm message, and the log never holds the address", r.status === 503 && /Couldn't send/.test(r.json.error) &&
+    logs.some(l => /brevo refused: 401 unauthorized/.test(l)) && !logs.some(l => l.includes("sam@")));
+  r = await start("x@example.com", { ...mail, EMAIL_FROM: undefined, DB: d1() });
+  check("Brevo without a sender: says email isn't set up", r.status === 503 && /isn't set up/.test(r.json.error));
+}
+
 finish();

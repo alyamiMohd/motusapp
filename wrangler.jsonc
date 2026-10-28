@@ -10,10 +10,7 @@
     { "binding": "DB", "database_name": "motus", "database_id": "4757ecc4-340b-41d4-a641-1f742da8af25" }
   ],
   "triggers": { "crons": ["*/30 * * * *"] },
-  "vars": {
-    // until a domain is verified in Resend, onboarding@resend.dev can only send to the Resend account's own address
-    "EMAIL_FROM": "Motus <onboarding@resend.dev>"
-  },
-  // secrets (npx wrangler secret put NAME): HEVY_SECRET (32 random bytes, base64), CODE_PEPPER, RESEND_API_KEY
+  // secrets (npx wrangler secret put NAME): HEVY_SECRET (32 random bytes, base64), CODE_PEPPER,
+  // BREVO_API_KEY or RESEND_API_KEY, and EMAIL_FROM ("Motus <sender verified with that provider>")
   "observability": { "enabled": true }
 }
