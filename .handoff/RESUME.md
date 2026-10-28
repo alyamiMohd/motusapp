@@ -2,7 +2,7 @@
 
 **Project:** Motus (public app): a fitness dashboard anyone can use. Sign in with an emailed code, connect Hevy and Apple Health once, and it stays up to date by itself; files can also be imported; demo data until then.
 **Repo:** https://github.com/alyamiMohd/motusapp (public, `main`). **Live (with accounts): https://motus.motusapp.workers.dev** (Cloudflare: account subdomain `motusapp`, Worker `motus`, D1 `motus` id 4757ecc4-340b-41d4-a641-1f742da8af25, cron every 30 min). Pages without accounts: https://alyamimohd.github.io/motusapp/ (its Connect page links to the live app).
-**Last updated:** 2026-10-27 20:55 (UTC+03, Riyadh) · last code commit `17389fd`, deployed (Cloudflare version 5b044556)
+**Last updated:** 2026-10-28 13:45 (UTC+03, Riyadh) · last code commit `30cb8f9`, deployed
 **Obsolete:** `alyamiMohd/motus-sync` (template for the earlier GitHub-copy sync, rejected as onboarding); its copies would fail now. Ask the owner before archiving/deleting it.
 
 ## Instructions for Claude
