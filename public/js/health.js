@@ -80,12 +80,12 @@ const toKg = (v, unit) => { const u = UNIT.find(([re]) => re.test(String(unit ||
 
 function fromShortcut(p) {
   const days = {}, put = (d, k, v) => { (days[d] || (days[d] = {}))[k] = v; };
-  const v2 = String(p.v) === "2";
+  const v2 = +p.v >= 2;
   const kcal = (n, u) => (/^(kj|كج)/i.test(u || "") ? n / 4.184 : n);
   if (v2) {
     // v2 sends Steps and Active Calories sample by sample with their source ("time|value|source", active also
-    // "|unit" before the source): per day the busiest source wins, so an iPhone and a Watch counting the same walk
-    // aren't added together (Shortcuts' own "group by day" adds them up).
+    // "|unit" before the source), v3 a day total per source ("day|value|n"): per day the busiest source wins, so an
+    // iPhone and a Watch counting the same walk aren't added together (Shortcuts' own "group by day" adds them up).
     const dayOf = new Map();          // only the day matters here, and thousands of samples share a few dozen days
     const dateOf = t => { const k = t.slice(0, 10); let v = dayOf.get(k); if (v === undefined) { const w = when(k); dayOf.set(k, v = w ? w.date : null); } return v; };
     for (const [field, key, hasUnit] of [["steps", "steps", false], ["active", "active_kcal", true]]) {
@@ -109,7 +109,8 @@ function fromShortcut(p) {
         const day = bySrc[date] || (bySrc[date] = {});
         day[src] = (day[src] || 0) + kcal(n, unit.trim());
       }
-      for (const [d, s] of Object.entries(bySrc)) put(d, key, Math.round(Math.max(...Object.values(s))));
+      // a day every source filled in as 0 had nothing recorded: leave it empty
+      for (const [d, s] of Object.entries(bySrc)) { const n = Math.round(Math.max(...Object.values(s))); if (n > 0) put(d, key, n); }
     }
   }
   for (const [field, key] of (v2 ? [["calories", "calories"]] : [["steps", "steps"], ["calories", "calories"], ["active", "active_kcal"]])) {
