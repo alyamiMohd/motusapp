@@ -195,40 +195,27 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
   const PARTS = "v+calories+weight+sleep,v+steps,v+active";
   check("Shortcut sends the fields the server reads, in three parts (food, weight, sleep; steps; energy), in both runs",
     keys === PARTS + "," + PARTS && posts.every(p => p.WFHTTPMethod === "POST"), keys);
-  const SEVEN = "Dietary Calories,Weight,Sleep,Steps,Steps,Active Calories,Active Calories";   // the first of each pair finds the sources
-  check("Shortcut reads the five Health types, once for the first run and once for daily runs", labels.join() === SEVEN + "," + SEVEN, labels.join());
+  const NINE = "Dietary Calories,Weight,Sleep,Steps,Steps,Steps,Active Calories,Active Calories,Active Calories";
+  check("Shortcut reads the five Health types, once for the first run and once for daily runs", labels.join() === NINE + "," + NINE, labels.join());
   const finds = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("filter.health.quantity")).map(a => a.WFWorkflowActionParameters);
   const days = finds.map(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates[1].Values.Number).join();
-  check("first run reads 30 days of everything; daily runs 2 days (a week of food and weight)", days === "30,30,30,30,30,30,30,7,7,2,2,2,2,2", days);
+  check("first run reads 30 days of everything; daily runs 2 days (a week of food and weight)",
+    days === "30,30,30,30,30,30,30,30,30,7,7,2,2,2,2,2,2,2", days);
   const grouped = finds.map(p => (p.WFHKSampleFilteringGroupBy || "-") + (p.WFHKSampleFilteringFillMissing ? "+" : "")).join();
-  check("v3: food (filling missing days), steps and active energy are day totals; weight, sleep and the source lookups raw",
-    grouped === "Day+,-,-,-,Day,-,Day,Day+,-,-,-,Day,-,Day", grouped);
-  const lists = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("setvariable")).map(a => a.WFWorkflowActionParameters.WFVariableName);
-  const lookups = finds.filter(p => !p.WFHKSampleFilteringGroupBy && p.WFContentItemLimitEnabled);
-  check("v3: the source lookups read only the newest 600 samples; nothing else is limited",
-    lookups.length === 4 && lookups.every(p => p.WFContentItemLimitNumber === 600 && p.WFContentItemSortOrder === "Latest First") &&
-    finds.filter(p => p.WFContentItemLimitEnabled).length === 4);
-  const skips = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("conditional") && a.WFWorkflowActionParameters.WFControlFlowMode === 0 &&
-    a.WFWorkflowActionParameters.WFInput.Variable.Value.VariableName === "Repeat Item").length;
-  check("v3: a source with an empty name is skipped", skips === 4, skips);
-  check("v3: steps and energy each find their own sources, with quotes and backslashes escaped before the JSON is read",
-    lists.filter(n => n === "Steps Sources").length === 2 && lists.filter(n => n === "Active Sources").length === 2 &&
-    acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("text.replace") && a.WFWorkflowActionParameters.WFReplaceTextFind === '"').length === 4);
-  const bySource = finds.filter(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates.some(r => r.Property === "Source"));
-  const asText = r => r.Values.String.WFSerializationType === "WFTextTokenString" &&
-    JSON.stringify(Object.values(r.Values.String.Value.attachmentsByRange)) === '[{"Type":"Variable","VariableName":"Repeat Item"}]';
-  check("v3: steps and active energy are read one source at a time (Source begins with and ends with Repeat Item, as text)",
-    bySource.length === 4 && bySource.every(p => { const rows = p.WFContentItemFilter.Value.WFActionParameterFilterTemplates.slice(2);
-      return p.WFContentItemFilter.Value.WFActionParameterFilterPrefix === 1 && rows.map(r => r.Operator).join() === "8,9" && rows.every(asText); }));
-  const nested = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("properties.health.quantity") &&
-    a.WFWorkflowActionParameters.WFInput.Value.VariableName === "Repeat Item 2").length;
-  check("v3: inside the per-source loop, the day comes from the inner loop's Repeat Item 2", nested === 10, nested);
-  check("v3: the upload says v 3 and sends the source's number, never its name",
+  check("v3: food (filling missing days), steps and active energy are day totals; weight and sleep raw; nothing limited",
+    grouped === "Day+,-,-,Day,Day,Day,Day,Day,Day,Day+,-,-,Day,Day,Day,Day,Day,Day" && !finds.some(p => p.WFContentItemLimitEnabled), grouped);
+  const rows = finds.filter(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates.length > 2)
+    .map(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates.slice(2).map(r => r.Property + r.Operator + r.Values.String).join("&")).join();
+  const G = "Source99Watch,Source99iPhone&Source999Watch,Source999Watch&Source999iPhone";
+  check("v3: steps and energy in three groups by fixed text: Watch, iPhone, everything else (no variables in filters)",
+    rows === [G, G, G, G].join(), rows);
+  check("v3: each group's lines end in its number (1-3), never a device name; the upload says v 3",
     post.WFJSONValues.Value.WFDictionaryFieldValueItems[0].WFValue.Value.string === "3" &&
-    acts.some(a => a.WFWorkflowActionIdentifier.endsWith("gettext") && JSON.stringify(a).includes('"VariableName":"Repeat Index"')) &&
-    !acts.some(a => a.WFWorkflowActionIdentifier.endsWith("gettext") && /"VariableName":"Repeat Item"[,}]/.test(JSON.stringify(a))));
+    ["|1", "|2", "|3"].every(n => acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("gettext") &&
+      a.WFWorkflowActionParameters.WFTextActionText.Value.string.endsWith(n)).length === 4) &&
+    !JSON.stringify(wf).includes('"Property":"Source","Removable":true,"Values":{"String":{'));
   const open = (kind, mode) => ids.filter((id, i) => id.endsWith(kind) && acts[i].WFWorkflowActionParameters.WFControlFlowMode === mode).length;
-  check("Shortcut: every If and Repeat is closed", open("conditional", 0) === open("conditional", 2) && open("repeat.each", 0) === open("repeat.each", 2) && open("repeat.each", 0) === 14 && open("conditional", 1) === 1);
+  check("Shortcut: every If and Repeat is closed", open("conditional", 0) === open("conditional", 2) && open("repeat.each", 0) === open("repeat.each", 2) && open("repeat.each", 0) === 18 && open("conditional", 1) === 1);
   const uuids = new Set(acts.map(a => a.WFWorkflowActionParameters.UUID).filter(Boolean));
   const refs = [...JSON.stringify(wf).matchAll(/"OutputUUID":"([^"]+)"/g)].map(m => m[1]);
   check("Shortcut: every variable points at an action that exists", refs.length > 20 && refs.every(u => uuids.has(u)));

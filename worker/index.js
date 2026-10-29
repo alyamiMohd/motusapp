@@ -167,8 +167,15 @@ async function upload(req, env) {
       // field 2 is a unit, except in v2 steps, where it is a device name: masked then
       const keep = i => k !== "sleep" && i === 2 && !(k === "steps" && +payload.v === 2);
       shape[k] = ls.length + ": " + first.map((f, i) => (keep(i) ? f : f.replace(/[0-9٠-٩]/g, "9").replace(/[^\s9|:.,\-]/g, "a"))).join("|");
-      // v3 numbers its sources: how many there were (a count, no names)
-      if (+payload.v >= 3 && (k === "steps" || k === "active")) shape[k] += ` (${new Set(ls.map(l => l.slice(l.lastIndexOf("|") + 1))).size} sources)`;
+      // v3 numbers its device groups: how many sent something, and on how many days with two or more of them every
+      // group sent the same number (a filter that doesn't filter). Counts only, no numbers or names.
+      if (+payload.v >= 3 && (k === "steps" || k === "active")) {
+        const byDay = {};
+        for (const l of ls) { const f = l.split("|"); (byDay[f[0]] || (byDay[f[0]] = [])).push(f[1]); }
+        const multi = Object.values(byDay).filter(v => v.length > 1);
+        shape[k] += ` (${new Set(ls.map(l => l.slice(l.lastIndexOf("|") + 1))).size} groups; alike on ${
+          multi.filter(v => new Set(v).size === 1).length}/${multi.length} days)`;
+      }
     }
     console.log("upload shape:", JSON.stringify(shape), "| hijri exact:", HIJRI_EXACT);
   }

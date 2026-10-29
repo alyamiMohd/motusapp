@@ -58,12 +58,8 @@ function ifHasValue(ref, body, otherwise) {   // If <ref> has any value … [Oth
 }
 const ifHasInput = (body, otherwise) => ifHasValue(INPUT, body, otherwise);
 
-// source: a variable holding one source's name. "Source is" is a picker of the phone's own sources and fails at run
-// time when a variable fills it (seen on the owner's iPhone, 2026-10-29), so the name is matched as text instead:
-// begins with it AND ends with it, which only the name itself does in practice ("contains" would also take
-// "Mo's iPhone" for "iPhone").
-// newest: only the newest N samples (Latest First), for looking up sources without reading a month of samples
-function findSamples(label, days, groupByDay, fillMissing = false, source, newest) {
+// rows: more filter rows after Type and Start Date (all must hold), such as a fixed "Source contains …"
+function findSamples(label, days, groupByDay, fillMissing = false, rows = []) {
   const p = {
     UUID: uid(),
     WFContentItemFilter: {
@@ -75,16 +71,15 @@ function findSamples(label, days, groupByDay, fillMissing = false, source, newes
             Values: { Enumeration: { Value: label, WFSerializationType: "WFStringSubstitutableState" } } },
           { Bounded: true, Operator: 1001, Property: "Start Date", Removable: false,
             Values: { Number: String(days), Unit: 16 } },
-          ...(source ? [8, 9].map(op => ({ Bounded: true, Operator: op, Property: "Source", Removable: true,   // begins / ends with
-            Values: { String: text(source) } })) : []),
+          ...rows,
         ],
       },
       WFSerializationType: "WFContentPredicateTableTemplate",
     },
     WFContentItemSortProperty: "Start Date",
-    WFContentItemSortOrder: newest ? "Latest First" : "Oldest First",
-    WFContentItemLimitEnabled: !!newest,
-    WFContentItemLimitNumber: newest || 20,
+    WFContentItemSortOrder: "Oldest First",
+    WFContentItemLimitEnabled: false,
+    WFContentItemLimitNumber: 20,
     WFHKSampleFilteringFillMissing: fillMissing,
   };
   if (groupByDay) p.WFHKSampleFilteringGroupBy = "Day";
@@ -132,47 +127,24 @@ function healthBlock(varName, label, days, groupByDay, fields, pattern, fillMiss
   return [find, ...body, setVar(varName, out(uuidOf(body.at(-1)), "Combined Text"))];
 }
 
-// The sources (iPhone, Watch, ring, apps) with samples of this type in the window, each once, in the variable
-// sourcesVar: their names joined into {"a":1,"b":1} and read back as a dictionary, whose keys can't repeat. Quotes and
-// backslashes in a name are escaped first so the JSON always reads. The names stay on the phone.
-// Only the newest SOURCE_SAMPLES samples are looked at: the 30-day run stopped here on the owner's iPhone (2026-10-29)
-// while 2 days (a few hundred samples) ran; this many still reaches back about a week for a phone, a watch and a ring.
-const SOURCE_SAMPLES = 600;
-const SEP = "␞";                     // joins the names before escaping; no device is called that
-const replace = (input, find, by) => act("text.replace", { UUID: uid(), WFInput: text(input), WFReplaceTextFind: find,
-  WFReplaceTextReplace: text(by) });
-function sourcesBlock(label, days, sourcesVar) {
-  const find = findSamples(label, days, false, false, undefined, SOURCE_SAMPLES);
-  const src = act("properties.health.quantity", { UUID: uid(), CustomOutputName: "Source", WFContentItemPropertyName: "Source",
-    WFInput: attach(out(uuidOf(find), "Health Samples")) });
-  const joined = act("text.combine", { UUID: uid(), WFTextSeparator: "Custom", WFTextCustomSeparator: SEP,
-    text: attach(out(uuidOf(src), "Source")) });
-  const r1 = replace(out(uuidOf(joined), "Combined Text"), "\\", "\\\\");
-  const r2 = replace(out(uuidOf(r1), "Updated Text"), '"', '\\"');
-  const r3 = replace(out(uuidOf(r2), "Updated Text"), SEP, '":1,"');
-  const json = act("gettext", { UUID: uid(), WFTextActionText: text('{"', out(uuidOf(r3), "Updated Text"), '":1}') });
-  const dict = act("detect.dictionary", { UUID: uid(), WFInput: attach(out(uuidOf(json), "Text")) });
-  const keys = act("getvalueforkey", { UUID: uid(), WFGetDictionaryValueType: "All Keys", WFInput: attach(out(uuidOf(dict), "Dictionary")) });
-  return [find, src, joined, r1, r2, r3, json, dict, keys, setVar(sourcesVar, out(uuidOf(keys), "Dictionary Value"))];
-}
-
-// v3: one total per day for each source on its own, "day|value[|unit]|n" with n the source's place in the list (a
-// number, never a device name). Health's day totals in Shortcuts add every source together (an iPhone and a Watch
-// counting the same walk twice); this way the server keeps the busiest source each day, as the Health app roughly
-// does. Day totals keep the upload small: iOS refuses to send thousands of single samples. Each type finds its own
-// sources, so every source asked has samples of that type (a ring or an app may count steps but no energy).
-function perSourceBlock(varName, label, days, fields) {
-  const g = uid(), endUUID = uid(), sourcesVar = varName + " Sources";
-  const find = findSamples(label, days, true, false, named("Repeat Item"));
-  const combine = combineLines(endUUID);
-  return [
-    ...sourcesBlock(label, days, sourcesVar),
-    act("repeat.each", { GroupingIdentifier: g, WFControlFlowMode: 0, UUID: uid(), WFInput: attach(named(sourcesVar)) }),
-    // a sample without a source gives an empty name, and a text filter can't match on nothing
-    ...ifHasValue(named("Repeat Item"), [find, ...sampleLines(find, fields, DAY, "Repeat Item 2", [named("Repeat Index")])]),
-    act("repeat.each", { GroupingIdentifier: g, WFControlFlowMode: 2, UUID: endUUID }),
-    combine, setVar(varName, out(uuidOf(combine), "Combined Text")),
-  ];
+// v3: day totals in three groups of devices, "day|value[|unit]|n" with n the group: 1 = a name with "Watch", 2 = with
+// "iPhone", 3 = everything else (a ring, a band, an app). Health's day totals in Shortcuts add every device together
+// (an iPhone and a Watch counting the same walk twice); this way the server keeps the busiest group each day, as the
+// Health app roughly does. The filters are fixed text: a Source filter filled from a variable failed ("Source is",
+// v3.0) or was silently ignored ("begins with", v3.1-3.3: every device's total came back as the sum of all) on the
+// owner's iPhone, 2026-10-29. Default names keep "iPhone" and "Apple Watch" in every language.
+const src = (op, s) => ({ Bounded: true, Operator: op, Property: "Source", Removable: true, Values: { String: s } });
+const GROUPS = [[src(99, "Watch")], [src(99, "iPhone"), src(999, "Watch")], [src(999, "Watch"), src(999, "iPhone")]];
+function groupsBlock(varName, label, days, fields) {
+  const parts = [], refs = [];
+  GROUPS.forEach((rows, i) => {
+    const find = findSamples(label, days, true, false, rows);
+    const body = sampleLines(find, fields, DAY, "Repeat Item", [String(i + 1)]);
+    parts.push(find, ...body);
+    refs.push(...(i ? ["\n"] : []), out(uuidOf(body.at(-1)), "Combined Text"));
+  });
+  const all = act("gettext", { UUID: uid(), WFTextActionText: text(...refs) });
+  return [...parts, all, setVar(varName, out(uuidOf(all), "Text"))];
 }
 
 export function build() {
@@ -203,10 +175,10 @@ export function build() {
     ...healthBlock("Weight", "Weight", w.food, false, ["Start Date", "Value", "Unit"], MIN),
     ...healthBlock("Sleep", "Sleep", w.move, false, ["Start Date", "End Date", "Value", "Source"], MIN),
     post(["Calories", "Weight", "Sleep"]),
-    // Steps and Active Calories: a day total per source (v3, perSourceBlock)
-    ...perSourceBlock("Steps", "Steps", w.move, ["Start Date", "Value"]),
+    // Steps and Active Calories: day totals per group of devices (v3, groupsBlock)
+    ...groupsBlock("Steps", "Steps", w.move, ["Start Date", "Value"]),
     post(["Steps"]),
-    ...perSourceBlock("Active", "Active Calories", w.move, ["Start Date", "Value", "Unit"]),
+    ...groupsBlock("Active", "Active Calories", w.move, ["Start Date", "Value", "Unit"]),
     post(["Active"]),
   ];
   const FIRST = { move: 30, food: 30 }, DAILY = { move: 2, food: 7 };
