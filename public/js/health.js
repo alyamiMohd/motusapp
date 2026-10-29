@@ -78,6 +78,28 @@ const UNIT = [[/^(kg|kgs|kilo|kilogram|kilograms|كغ|كجم|كيلو|كيلوغ
               [/^(g|gram|grams|غ|جم|غرام|جرام)$/i, 0.001], [/^(st|stone|stones)$/i, 6.35029318]];
 const toKg = (v, unit) => { const u = UNIT.find(([re]) => re.test(String(unit || "").trim().replace(/\.$/, ""))); return u ? v * u[1] : v > 180 ? v * LB : v; };
 
+// v4: one day of single samples, values and their devices in parallel columns, one line per sample. Each device's
+// samples are added up and the busiest device counts, so an iPhone and a Watch counting the same walk aren't added
+// together (as the Health app roughly does). The device names are used only here, never stored.
+const toKcal = (n, u) => (/^(kj|كج)/i.test(String(u || "").trim()) ? n / 4.184 : n);
+function fromShortcutDay(p) {
+  const days = {}, w = when(String(p.day || ""));
+  if (!w) return days;
+  const col = t => String(t || "").split(/\r?\n/);
+  for (const [key, field, energy] of [["steps", "steps", false], ["active_kcal", "active", true]]) {
+    const sources = col(p[field + "_sources"]), units = col(p[field + "_units"]), bySrc = {};
+    col(p[field + "_values"]).forEach((v, i) => {
+      const n = num(v);
+      if (n == null) return;
+      const src = (sources[i] || "").trim() || "?";
+      bySrc[src] = (bySrc[src] || 0) + (energy ? toKcal(n, units[i]) : n);
+    });
+    const best = Math.round(Math.max(0, ...Object.values(bySrc)));
+    if (best > 0) (days[w.date] || (days[w.date] = {}))[key] = best;
+  }
+  return days;
+}
+
 function fromShortcut(p) {
   const days = {}, put = (d, k, v) => { (days[d] || (days[d] = {}))[k] = v; };
   const v2 = +p.v >= 2;
@@ -169,6 +191,7 @@ export function readHealthUpload(p) {
   if (typeof p.health_b64 === "string") days = fromHealthExporterJSON(JSON.parse(fromB64(p.health_b64))).days;
   else if (p.health) days = fromHealthExporterJSON(typeof p.health === "string" ? JSON.parse(p.health) : p.health).days;
   else if (p.days && typeof p.days === "object") days = p.days;
+  else if (+p.v >= 4 && typeof p.day === "string") days = fromShortcutDay(p);
   else if (["steps", "calories", "active", "weight", "sleep"].some(k => typeof p[k] === "string")) days = fromShortcut(p);
   else if (["stepCount", "sleepTime", "dietaryEnergy", "weight"].some(k => Array.isArray(p[k]))) days = fromHealthExporterJSON(p).days;
   else throw new Error("Nothing Motus can read in this upload.");

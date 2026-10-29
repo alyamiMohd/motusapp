@@ -153,16 +153,10 @@ async function upload(req, env) {
   const hash = await sha256(m[1]);
   const row = await env.DB.prepare("SELECT user_id FROM upload_tokens WHERE token_hash = ?").bind(hash).first();
   if (!row) return fail(401, "This Shortcut isn't connected any more. Set up Apple Health again in Motus → Connect.");
-  if (!(await allow(env.DB, "upload:" + hash, 60, 3600))) return fail(429, "Too many uploads. Try again later.");
+  // a first run sends a day at a time (30 uploads), so allow a few of those in an hour
+  if (!(await allow(env.DB, "upload:" + hash, 200, 3600))) return fail(429, "Too many uploads. Try again later.");
   let days, payload;
-  try { payload = await body(req); } catch (e) { return fail(400, e.message); }
-  // TEMPORARY: the Shortcut's filter test, how many samples each filter let through (counts only, no values)
-  const diag = payload && typeof payload === "object" ? Object.keys(payload).filter(k => k.startsWith("diag_")) : [];
-  if (diag.length) {
-    console.log("filter test:", diag.map(k => k.slice(5) + "=" + String(payload[k] || "").split(/\r?\n/).filter(Boolean).length).join(" "));
-    return json({ ok: true, days: 0 });
-  }
-  try { days = readHealthUpload(payload); } catch (e) { return fail(400, e.message); }
+  try { payload = await body(req); days = readHealthUpload(payload); } catch (e) { return fail(400, e.message); }
   // Diagnostics while the Shortcut is new: the SHAPE of each field (line count, first line with every digit masked
   // and every letter masked except in units), never the values, dates or device names.
   if (payload && typeof payload === "object") {
@@ -183,6 +177,12 @@ async function upload(req, env) {
         shape[k] += ` (${new Set(ls.map(l => l.slice(l.lastIndexOf("|") + 1))).size} groups; alike on ${
           multi.filter(v => new Set(v).size === 1).length}/${multi.length} days)`;
       }
+    }
+    // v4, one day: how many samples, whether the columns line up, how many devices (counts only, no names)
+    if (+payload.v >= 4) for (const k of ["steps", "active"]) {
+      const lines = f => String(payload[k + "_" + f] || "").split(/\r?\n/).filter(Boolean);
+      const v = lines("values"), s = lines("sources");
+      shape[k] = `${v.length} samples${v.length === s.length ? "" : ` but ${s.length} sources`}, ${new Set(s).size} devices`;
     }
     console.log("upload shape:", JSON.stringify(shape), "| hijri exact:", HIJRI_EXACT);
   }
