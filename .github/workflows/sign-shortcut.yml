@@ -24,6 +24,10 @@ jobs:
           git submodule status --recursive
       - name: Sign
         run: bash tools/shortcut/sign-selfsigned.sh "$RUNNER_TEMP/shortcut-sign" out
+        env:   # the testing certificate, if set (else a throwaway one); never printed
+          MOTUS_SIGN_KEY: ${{ secrets.MOTUS_SIGN_KEY }}
+          MOTUS_SIGN_CERT: ${{ secrets.MOTUS_SIGN_CERT }}
+          MOTUS_SIGN_ROOT: ${{ secrets.MOTUS_SIGN_ROOT }}
       - uses: actions/upload-artifact@v4
         with:
           name: motus-shortcut

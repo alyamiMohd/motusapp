@@ -28,7 +28,15 @@ make -C "$SS" > "$WORK/build.log" 2>&1 || { tail -40 "$WORK/build.log"; exit 1; 
 SIGN="$SS/build/usr/bin/shortcut-sign"
 "$SIGN" version || true
 
-# 2. A fresh certificate pair, valid for 30 days.
+# 2. The testing certificate when the repo has one (secrets MOTUS_SIGN_KEY, MOTUS_SIGN_CERT, MOTUS_SIGN_ROOT, made once
+#    by the owner's choice on 2026-10-29 so the iPhone trusts one profile for the testing period; its root key was
+#    destroyed when it signed the leaf), otherwise a fresh throwaway pair, valid for 30 days.
+if [ -n "${MOTUS_SIGN_KEY:-}" ]; then
+  printf '%s\n' "$MOTUS_SIGN_KEY" > "$WORK/leaf.key"
+  printf '%s\n' "$MOTUS_SIGN_CERT" > "$WORK/leaf.pem"
+  printf '%s\n' "$MOTUS_SIGN_ROOT" > "$WORK/root.pem"
+  echo "using the testing certificate"
+else
 cat > "$WORK/ext.cnf" <<'EOF'
 [req]
 distinguished_name = dn
@@ -56,6 +64,7 @@ openssl req -new -key "$WORK/leaf.key" -subj "/C=SA/O=Motus/CN=Motus Shortcut" -
 openssl x509 -req -in "$WORK/leaf.csr" -CA "$WORK/root.pem" -CAkey "$WORK/root.key" -set_serial "$(serial)" \
   -days 30 -sha256 -extfile "$WORK/ext.cnf" -extensions leaf -out "$WORK/leaf.pem"
 shred -u "$WORK/root.key"                  # nothing can ever be issued under this root again
+fi
 openssl verify -CAfile "$WORK/root.pem" "$WORK/leaf.pem"
 openssl x509 -in "$WORK/root.pem" -outform DER -out "$WORK/root.der"
 openssl x509 -in "$WORK/leaf.pem" -outform DER -out "$WORK/leaf.der"
