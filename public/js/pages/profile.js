@@ -1,5 +1,5 @@
 // Profile: a name, a photo and a username that can be shared (…/u/<username>), plus signing out and deleting the account.
-import { initNav, refreshNav, esc } from "../core.js";
+import { initNav, initStandards, refreshNav, esc } from "../core.js";
 import { checkAccount, cachedMe, cachedPhoto, getProfile, saveProfile, profileLink, signOut, deleteAccount } from "../account.js";
 
 const $ = id => document.getElementById(id);
@@ -42,6 +42,9 @@ function show(p) {
   if (p.username) { const l = profileLink(p.username); $("link").href = l; $("link").textContent = l; }
   $("b-share").hidden = !navigator.share;
   $("email").textContent = me.email || "";
+  const n = me.requests || 0;
+  $("friends-sub").textContent = n ? `${n} asking to be friends` : "Find people and see how they're doing";
+  $("friends-sub").className = n ? "good" : "";
   refreshNav();
 }
 
@@ -87,11 +90,12 @@ $("b-delete").onclick = async () => {
   try { await deleteAccount(); location.href = "./"; } catch (e) { say("account", esc(e.message), "bad"); }
 };
 
-initNav("profile", () => {});
+initNav("profile");
+initStandards($("std"));
 const me = cachedMe();
-$("out").hidden = !!me; $("in").hidden = !me;
+$("out").hidden = !!me; $("in").hidden = !me; $("acct").hidden = !me;
 if (me) show({ name: me.profile && me.profile.name, username: me.profile && me.profile.username, avatar: cachedPhoto(), public: !!(me.profile && me.profile.public) });
 checkAccount().then(async r => {
-  $("out").hidden = !!r.me; $("in").hidden = !r.me;
+  $("out").hidden = !!r.me; $("in").hidden = !r.me; $("acct").hidden = !r.me;
   if (r.me) show(await getProfile().catch(() => saved));
 });

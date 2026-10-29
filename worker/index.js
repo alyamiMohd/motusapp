@@ -170,8 +170,10 @@ async function me(env, user) {
   const t = tokens.find(r => !r.token_hash.startsWith(HC)), a = tokens.find(r => r.token_hash.startsWith(HC));
   const p = await env.DB.prepare("SELECT p.name, p.username, p.avatar IS NOT NULL AS photo, s.public FROM profiles p " +
     "LEFT JOIN sharing s ON s.user_id = p.user_id WHERE p.user_id = ?").bind(user.id).first();
+  const asking = await env.DB.prepare("SELECT COUNT(*) AS n FROM friend_requests WHERE to_id = ?").bind(user.id).first();
   return {
     email: user.email,
+    requests: asking ? asking.n : 0,                 // people asking to be friends: a dot on the profile button
     profile: { name: p ? p.name : null, username: p ? p.username : null, photo: !!(p && p.photo), public: !!(p && p.public) },
     hevy: h ? { connected: true, synced: h.synced, error: h.error, syncing: h.next_page != null } : { connected: false },
     health: t ? { connected: true, last_upload: t.used } : { connected: false },

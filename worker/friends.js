@@ -8,6 +8,9 @@ import { USERNAME } from "./profile.js";
 
 const PERSON = "p.user_id, p.name, p.username, p.avatar, COALESCE(s.public, 0) AS public";
 const FROM = "profiles p LEFT JOIN sharing s ON s.user_id = p.user_id";
+// a request, a new friend or one removed: both people's pages refresh (users.changed is the ETag of /api/data,
+// which also carries the count of people asking, shown as a dot on the profile button)
+const touch = (env, ...ids) => env.DB.batch(ids.map(id => env.DB.prepare("UPDATE users SET changed = MAX(changed + 1, ?) WHERE id = ?").bind(Date.now(), id)));
 const show = r => ({ username: r.username, name: r.name, avatar: r.avatar, public: !!r.public });
 
 async function byUsername(env, username) {
@@ -89,7 +92,10 @@ export async function request(env, meId, username) {
   const rel = await relation(env, meId, p.user_id);
   if (rel === "self") return fail(400, "That's you.");
   if (rel === "incoming") return accept(env, meId, p.username);
-  if (rel === "none") await env.DB.prepare("INSERT OR IGNORE INTO friend_requests (from_id, to_id, created) VALUES (?, ?, ?)").bind(meId, p.user_id, Date.now()).run();
+  if (rel === "none") {
+    await env.DB.prepare("INSERT OR IGNORE INTO friend_requests (from_id, to_id, created) VALUES (?, ?, ?)").bind(meId, p.user_id, Date.now()).run();
+    await touch(env, meId, p.user_id);
+  }
   return json({ ...show(p), relation: rel === "none" ? "requested" : rel });
 }
 
@@ -104,6 +110,7 @@ export async function accept(env, meId, username) {
     env.DB.prepare("INSERT OR IGNORE INTO friends (user_id, friend_id, since) VALUES (?, ?, ?)").bind(p.user_id, meId, now),
     env.DB.prepare("DELETE FROM friend_requests WHERE (from_id = ? AND to_id = ?) OR (from_id = ? AND to_id = ?)").bind(p.user_id, meId, meId, p.user_id),
   ]);
+  await touch(env, meId, p.user_id);
   return json({ ...show(p), relation: "friend" });
 }
 
@@ -115,6 +122,7 @@ export async function remove(env, meId, username) {
     env.DB.prepare("DELETE FROM friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)").bind(meId, p.user_id, p.user_id, meId),
     env.DB.prepare("DELETE FROM friend_requests WHERE (from_id = ? AND to_id = ?) OR (from_id = ? AND to_id = ?)").bind(meId, p.user_id, p.user_id, meId),
   ]);
+  await touch(env, meId, p.user_id);
   return json({ ...show(p), relation: "none" });
 }
 

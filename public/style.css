@@ -22,8 +22,8 @@ nav { border-bottom: 1px solid var(--line); margin-bottom: 24px; padding-top: en
 .links a, .links button { font: inherit; font-size: 14px; color: var(--muted); background: none; border: 0; padding: 12px 0; cursor: pointer; }
 .links a.on, .links button[aria-expanded="true"] { color: var(--text); }
 /* profile button: a round photo or initial, top right (after the links on a wide screen, beside the name on a phone) */
-.me { order: 3; display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
-.me > * { width: 30px; height: 30px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center;
+.me { position: relative; order: 3; display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+.me > :not(.dot-new) { width: 30px; height: 30px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center;
           background: var(--line); color: var(--muted); font-size: 13px; font-weight: 600; }
 .me img { object-fit: cover; }
 .me svg { padding: 5px; box-sizing: border-box; fill: none; stroke: currentColor; stroke-width: 1.6; }
@@ -32,14 +32,13 @@ nav { border-bottom: 1px solid var(--line); margin-bottom: 24px; padding-top: en
 @media (max-width: 440px) {
   .bar { flex-wrap: wrap; padding-top: 10px; }
   .me { order: 2; margin-left: auto; margin-right: -7px; }
-  .links { order: 3; width: 100%; justify-content: space-between; gap: 4px; margin-left: 0; }
+  .links { order: 3; width: 100%; justify-content: flex-start; gap: 24px; margin-left: 0; }
   .links a, .links button { padding: 10px 0; }
 }
 @media (max-width: 340px) { .links a, .links button { font-size: 13px; } }
 
 /* standards panel */
-#standards { display: none; border-top: 1px solid var(--line); padding-top: 16px; padding-bottom: 16px; font-size: 14px; }
-#standards.open { display: block; }
+#standards { font-size: 14px; }
 #standards label { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; }
 #standards input { width: 90px; font: inherit; font-size: 16px; text-align: right; color: var(--text); background: none;
                    border: 0; border-bottom: 1px solid var(--line); padding: 4px 0; border-radius: 0; }
@@ -245,3 +244,15 @@ details > .recent { padding-left: 12px; font-size: 13px; }
 .people .acts { display: flex; gap: 6px; flex: none; }
 .friends .search { margin-top: 20px; }
 .friends section { margin-top: 32px; }
+/* someone asks to be friends: a small dot on the profile button */
+.me .dot-new { position: absolute; top: 5px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 2px var(--bg); }
+/* profile: a row that opens another page (Friends), and the way back */
+.go { display: flex; align-items: center; gap: 12px; min-height: 60px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 22px; }
+.go + section { border-top: 0; }
+.go > span { flex: 1; min-width: 0; }
+.go b { display: block; font-weight: 600; font-size: 15px; }
+.go small { display: block; margin-top: 2px; color: var(--muted); }
+.go small.good { color: var(--green); }
+.go i { width: 8px; height: 8px; border-right: 1.5px solid var(--muted); border-top: 1.5px solid var(--muted); transform: rotate(45deg); margin-right: 6px; }
+.back { display: inline-block; font-size: 14px; color: var(--muted); padding: 8px 0; margin-bottom: 4px; }
+.profile .standards { margin-top: 22px; }

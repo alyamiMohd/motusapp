@@ -505,11 +505,15 @@ section("people and friends");
   check("a public dashboard: anyone signed in sees the numbers, never the email", r.status === 200 && r.json.sources.apple.data.days["2026-10-27"].steps === 12000 &&
     !r.text.includes("cai@example.com") && !("me" in r.json) && r.json.person.username === "cai");
 
+  const benTag = (await call("GET", "/api/data", as(ben))).headers.get("etag");
   r = await call("POST", "/api/friends", { ...as(ana), body: { username: "ben.o" } });
   check("a request is sent", r.status === 200 && r.json.relation === "requested");
+  check("…and Ben's next refresh isn't skipped (his data's ETag changed)", (await call("GET", "/api/data", { ...as(ben), headers: { "if-none-match": benTag } })).status === 200);
   check("…not yet a friend: still private", (await call("GET", "/api/people/ben.o/data", as(ana))).status === 403);
   r = await call("GET", "/api/friends", as(ben));
   check("Ben sees Ana's request waiting", r.json.incoming.length === 1 && r.json.incoming[0].username === "ana" && r.json.friends.length === 0);
+  check("…and /api/me counts it, for the dot on his profile button", (await call("GET", "/api/me", as(ben))).json.requests === 1 &&
+    (await call("GET", "/api/me", as(ana))).json.requests === 0);
   check("only the person asked can accept", (await call("POST", "/api/friends/accept", { ...as(ana), body: { username: "ben.o" } })).status === 409);
   r = await call("POST", "/api/friends/accept", { ...as(ben), body: { username: "ana" } });
   check("Ben accepts: friends", r.status === 200 && r.json.relation === "friend");

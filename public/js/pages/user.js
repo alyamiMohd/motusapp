@@ -41,7 +41,7 @@ async function dashboard() {
     drawDashboard(data, { own: person.relation === "self" });
     const newest = Object.keys(data.days).sort().pop();
     $("foot").textContent = newest ? `Newest numbers from ${new Date(newest + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })}. ` +
-      "Green follows your own Standards." : "";
+      "Green follows your own goals (Profile → Standards)." : "";
     $("dash").hidden = false; why("");
   } catch (e) { $("dash").hidden = true; why(esc(e.message)); }
 }

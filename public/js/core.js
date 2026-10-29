@@ -81,37 +81,43 @@ function navState() {
 const PERSON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="4"/><path d="M4 21c.8-4.3 4-6.5 8-6.5s7.2 2.2 8 6.5"/></svg>';
 function face({ me, photo }) {
   const name = me && ((me.profile && me.profile.name) || me.email) || "";
-  return photo && /^data:image\//.test(photo) ? `<img src="${esc(photo)}" alt="">`
+  const pic = photo && /^data:image\//.test(photo) ? `<img src="${esc(photo)}" alt="">`
     : me ? `<span>${esc(name.trim().charAt(0).toUpperCase() || "M")}</span>` : PERSON;
+  return pic + (me && me.requests ? '<i class="dot-new" aria-hidden="true"></i>' : "");     // someone asks to be friends
 }
+const meLabel = s => !s.me ? "Sign in" : s.me.requests ? `Your profile, ${s.me.requests} asking to be friends` : "Your profile";
 
 // After signing in or out, a new photo or name, or a workout tracker connected: the navbar catches up.
 export function refreshNav() {
   const s = navState(), el = document.querySelector("nav .me"), w = document.querySelector('nav a[href="workouts.html"]');
-  if (el) { el.innerHTML = face(s); el.setAttribute("aria-label", s.me ? "Your profile" : "Sign in"); }
+  if (el) { el.innerHTML = face(s); el.setAttribute("aria-label", meLabel(s)); }
   if (w && !w.classList.contains("on")) w.hidden = !s.workouts;
 }
 
-// ---- navbar + Standards panel. onChange runs whenever a goal or setting changes. ----
+// ---- navbar: the pages and the profile button (Friends and Standards are part of the profile) ----
 // The brand mark, found next to this module so it works on /u/<name> pages and under a sub-path (GitHub Pages) alike
 export const MARK = new URL("../brand/mark.png", import.meta.url).pathname;
-export function initNav(active, onChange) {
+export function initNav(active) {
   const link = (href, key, text) => `<a href="${href}" class="${active === key ? "on" : ""}"${active === key ? ' aria-current="page"' : ""}>${text}</a>`;
   const s = navState();
   document.body.insertAdjacentHTML("afterbegin", `
 <nav>
   <div class="bar">
     <a href="${new URL("../", import.meta.url).pathname}" class="brand" aria-label="Motus home"><img src="${MARK}" alt="" width="46" height="46"><b>motus</b></a>
-    <a href="profile.html" class="me${active === "profile" ? " on" : ""}" aria-label="${s.me ? "Your profile" : "Sign in"}"${active === "profile" ? ' aria-current="page"' : ""}>${face(s)}</a>
+    <a href="profile.html" class="me${active === "profile" ? " on" : ""}" aria-label="${meLabel(s)}"${active === "profile" ? ' aria-current="page"' : ""}>${face(s)}</a>
     <span class="links">
       ${link("./", "home", "Home")}
       ${link("workouts.html", "workouts", "Workouts").replace("<a ", s.workouts || active === "workouts" ? "<a " : "<a hidden ")}
       ${link("weeks.html", "weeks", "Weeks")}
-      ${link("friends.html", "friends", "Friends")}
       ${link("connect.html", "connect", "Connect")}
-      <button id="toggle" aria-expanded="false" aria-controls="standards">Standards</button>
     </span>
   </div>
+</nav>`);
+}
+
+// ---- Standards: goals, training days, units and week start, kept on this device. Drawn on the Profile page. ----
+export function initStandards(container, onChange = () => {}) {
+  container.innerHTML = `
   <div id="standards">
     <label>Steps per day <input id="s-steps" type="number" inputmode="numeric" min="0" step="500"></label>
     <label>Sleep hours per night <input id="s-sleep" type="number" inputmode="decimal" min="0" max="24" step="0.5"></label>
@@ -125,8 +131,7 @@ export function initNav(active, onChange) {
     <div class="label2">Week starts on</div>
     <div class="seg" id="s-first"><button type="button" data-v="0">Sunday</button><button type="button" data-v="1">Monday</button></div>
     <div class="row2"><small>Green when you reach it. Saved on this device.</small><button id="reset">Reset</button></div>
-  </div>
-</nav>`);
+  </div>`;
   const wInput = document.getElementById("s-weight");
   const inputs = { steps: "s-steps", sleep: "s-sleep", calories: "s-calories", workouts: "s-workouts" };
   const fill = () => {
@@ -174,7 +179,5 @@ export function initNav(active, onChange) {
     Object.assign(prefs, { ...DEFAULTS, days: [...DEFAULTS.days] });
     savePrefs(); fill(); onChange();
   });
-  const toggle = document.getElementById("toggle"), panel = document.getElementById("standards");
-  toggle.addEventListener("click", () => toggle.setAttribute("aria-expanded", panel.classList.toggle("open")));
   fill();
 }

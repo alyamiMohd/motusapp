@@ -45,6 +45,8 @@
     <div class="act"><button class="btn" id="b-save" type="button">Save</button></div>
     <p class="msg" id="m-profile" role="status"></p>
 
+    <a class="go" href="friends.html"><span><b>Friends</b><small id="friends-sub">Find people and see how they're doing</small></span><i aria-hidden="true"></i></a>
+
     <section>
       <h2>Who can see your dashboard</h2>
       <div class="seg" id="vis" role="group" aria-label="Who can see your dashboard">
@@ -59,13 +61,20 @@
       <div class="act"><button class="btn ghost" id="b-share" type="button">Share</button><button class="btn ghost" id="b-copy" type="button">Copy link</button></div>
     </section>
 
-    <section>
-      <h2>Account</h2>
-      <p class="state">Signed in as <b id="email"></b></p>
-      <div class="act"><button class="btn ghost" id="b-out" type="button">Sign out</button><button class="btn danger" id="b-delete" type="button">Delete my account</button></div>
-      <p class="msg" id="m-account" role="status"></p>
-    </section>
   </div>
+
+  <section class="standards">
+    <h2>Standards</h2>
+    <p class="note">Your goals: numbers that reach them turn green, on your dashboard and your friends'.</p>
+    <div id="std"></div>
+  </section>
+
+  <section id="acct" hidden>
+    <h2>Account</h2>
+    <p class="state">Signed in as <b id="email"></b></p>
+    <div class="act"><button class="btn ghost" id="b-out" type="button">Sign out</button><button class="btn danger" id="b-delete" type="button">Delete my account</button></div>
+    <p class="msg" id="m-account" role="status"></p>
+  </section>
 </main>
 <script type="module" src="js/pages/profile.js"></script>
 </body>

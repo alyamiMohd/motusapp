@@ -12,9 +12,11 @@ A quiet dashboard for your sleep, steps, food, weight and workouts.
 - **Home:** this week's averages (steps and calories up to yesterday, because today isn't finished; sleep and weight up to today), weight change against last week, the week's workout days (trained and planned), last week in one line, the last 7 days and 30-day charts.
 - **Workouts** (only once Hevy or Strong is connected): a rating for your last workout and for the last 4 weeks, workouts per week, every exercise's estimated one-rep max and its trend, and a rating for each workout this week and last.
 - **Weeks:** one row per finished week, downloadable as CSV.
-- **Standards:** your own goals (green when you reach them), training days, kg or lb, and whether weeks start on Sunday or Monday.
-- **Profile** (the round button top right): your name, photo and a username; `…/u/<username>` is a page you can share. Who can see your dashboard: **friends only** (the default) or **everyone on Motus**. Also signing out and deleting the account.
-- **Friends**: find people by name or @username (private profiles only by their exact username), ask them to be friends, accept or decline requests. A friend's profile shows their dashboard; so does anyone's public profile to people signed in.
+- **Profile** (the round button top right; the menu itself is only Home, Workouts, Weeks and Connect): your name, photo and a username; `…/u/<username>` is a page you can share. Everything social and personal lives here:
+  - **Friends** (a green dot on the profile button when someone asks): find people by name or @username (private profiles only by their exact username), ask them to be friends, accept or decline requests. A friend's profile shows their dashboard; so does anyone's public profile to people signed in.
+  - **Who can see your dashboard**: friends only (the default) or everyone on Motus.
+  - **Standards**: your own goals (green when you reach them), training days, kg or lb, and whether weeks start on Sunday or Monday. Saved on the device, so they're there signed out too.
+  - Signing out and deleting the account.
 
 ## How connecting works
 

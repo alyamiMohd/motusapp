@@ -1,6 +1,6 @@
 // Friends: find people by name or @username, ask them to be friends, answer requests, and open a friend's dashboard
 // (their profile page, /u/<username>). Who can see whose numbers is decided on the server (worker/friends.js).
-import { initNav, esc } from "../core.js";
+import { initNav, refreshNav, esc } from "../core.js";
 import { checkAccount, cachedMe, getFriends, searchPeople, addFriend, acceptFriend, removeFriend, profileLink } from "../account.js";
 
 const $ = id => document.getElementById(id);
@@ -61,6 +61,7 @@ document.addEventListener("click", async e => {
     if (act === "cancel" || act === "decline") await removeFriend(u);
   } catch (err) { say(esc(err.message), "bad"); b.disabled = false; return; }
   last = ""; await Promise.all([lists(), find()]);
+  checkAccount().then(refreshNav);                    // the dot on the profile button goes once requests are answered
 });
 
 function privacyNote(me) {
@@ -69,7 +70,7 @@ function privacyNote(me) {
     : "Your profile is <b>private</b>: only your friends can see your dashboard.") + ` Change it on your <a href="profile.html"><u>Profile</u></a>.`;
 }
 
-initNav("friends", () => {});
+initNav("profile");
 const show = me => { $("out").hidden = !!me; $("in").hidden = !me; if (me) { privacyNote(me); lists(); } };
 show(cachedMe());
 checkAccount().then(r => { if (!!r.me !== !!cachedMe() || r.me) show(r.me); });
