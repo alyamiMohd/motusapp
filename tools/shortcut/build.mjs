@@ -127,8 +127,8 @@ function columns(find, cols) {
 // and POST them. The server adds up each device and keeps the busiest one, as the Health app roughly does; it uses the
 // device names only for that and doesn't store or log them.
 const qty = (magnitude, unit) => ({ Value: { Magnitude: magnitude, Unit: unit }, WFSerializationType: "WFQuantityFieldValue" });
-const adjust = (date, op, magnitude = "1") => act("adjustdate", { UUID: uid(), WFDate: text(date), WFAdjustOperation: op,
-  WFDuration: qty(magnitude, "days") });
+const adjust = (date, op, magnitude = "1", unit = "days") => act("adjustdate", { UUID: uid(), WFDate: text(date), WFAdjustOperation: op,
+  WFDuration: qty(magnitude, unit) });
 const between = (start, end) => ({ Bounded: true, Operator: 1003, Property: "Start Date", Removable: true,
   Values: { Date: attach(start), AnotherDate: attach(end) } });
 // The last n days, today first, one upload per day: {v: 5, day, device, steps_values, steps_sources, steps_starts,
@@ -141,15 +141,18 @@ function byDayBlock(n, post4) {
   const tomorrow = adjust(out(uuidOf(today), "Adjusted Date"), "Add");
   const end = adjust(named("Day End"), "Get Start of Day");       // a fresh copy of Day End to filter with
   const start = adjust(out(uuidOf(end), "Adjusted Date"), "Subtract");
+  // readings from 3 hours before the day too: one that starts before midnight and runs into the day counts there in
+  // part, as in the Health app (the server keeps only the day's own quarter hours)
+  const from = adjust(out(uuidOf(start), "Adjusted Date"), "Subtract", "3", "hr");
   const day = act("format.date", { UUID: uid(), WFDate: text(out(uuidOf(start), "Adjusted Date")),
     WFDateFormatStyle: "Custom", WFDateFormat: DAY, WFTimeFormatStyle: "None" });
   // this phone's own name: Health ranks phones above apps, and a phone called something like "iMone" doesn't say so
   const phone = act("getdevicedetails", { UUID: uid(), WFDeviceDetail: "Device Name" });
-  const body = [end, start, day],
+  const body = [end, start, from, day],
     fields = [["day", text(out(uuidOf(day), "Formatted Date"))], ["device", text(out(uuidOf(phone), "Device Details"))]];
   for (const [key, label] of [["steps", "Steps"], ["active", "Active Calories"]]) {
     // "in the last n+1 days" too: a plain bound Health can use before the day's own range
-    const find = findSamples(label, n + 1, false, false, [between(out(uuidOf(start), "Adjusted Date"), out(uuidOf(end), "Adjusted Date"))]);
+    const find = findSamples(label, n + 1, false, false, [between(out(uuidOf(from), "Adjusted Date"), out(uuidOf(end), "Adjusted Date"))]);
     // steps also send end times: Health spreads a sample over the quarter hours it spans (see mergeLikeHealth)
     const [acts, cols] = columns(find, [[key + "_values", "Value"], [key + "_sources", "Source"],
       ...(key === "active" ? [[key + "_units", "Unit"]] : []), [key + "_starts", "Start Date", STAMP],

@@ -98,7 +98,9 @@ export function healthOrder(samples, phone) {
   return Object.keys(busy).sort((x, y) => kind(x, phone) - kind(y, phone) || busy[y] - busy[x]);
 }
 const QUARTER = 15;
-export function mergeLikeHealth(samples, phone) {          // [{ a, b (start, end in minutes), v, src }] -> the day's total
+// day: [from, to) in minutes: only those quarter hours count (a reading that runs past midnight counts in part on
+// each day, as in Health; the Shortcut also sends the 3 hours before the day so the part after midnight is there)
+export function mergeLikeHealth(samples, phone, day = [-Infinity, Infinity]) {   // [{ a, b (start, end in minutes), v, src }] -> total
   const pri = Object.fromEntries(healthOrder(samples, phone).map((s, i) => [s, i]));
   const quarters = new Map();                               // quarter -> { top priority there, steps by priority }
   const add = (q, src, part) => {
@@ -116,7 +118,7 @@ export function mergeLikeHealth(samples, phone) {          // [{ a, b (start, en
     }
   }
   let total = 0;
-  for (const e of quarters.values()) total += e.by.get(e.top) || 0;
+  for (const [q, e] of quarters) if (q * QUARTER >= day[0] && q * QUARTER < day[1]) total += e.by.get(e.top) || 0;
   return total;
 }
 // "yyyy-MM-dd HH:mm[:ss]" -> minutes, quickly: a day's thousand samples share one date, converted (Hijri too) once
@@ -145,7 +147,7 @@ function fromShortcutDay(p) {
     const ends = col(p[field + "_ends"]);
     if (starts) for (const s of samples) { const b = stampMins(ends[s.i] || ""); s.b = b == null ? s.a : b; }
     let best;
-    if (samples.length && starts) best = mergeLikeHealth(samples, String(p.device || "").trim());
+    if (samples.length && starts) best = mergeLikeHealth(samples, String(p.device || "").trim(), [w.mins, w.mins + 24 * 60]);
     else {
       const bySrc = {};
       for (const s of samples) bySrc[s.src] = (bySrc[s.src] || 0) + s.v;

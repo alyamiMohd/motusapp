@@ -211,9 +211,10 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
     .map(a => a.WFWorkflowActionParameters.WFRepeatCount).join();
   const back = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("adjustdate") && a.WFWorkflowActionParameters.WFAdjustOperation === "Subtract");
   const dayEnds = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("setvariable") && a.WFWorkflowActionParameters.WFVariableName === "Day End").length;
-  check("v4: the first run goes back 30 days, daily runs 3 (today first), a fixed 1 day back each pass (Day End)",
-    counts === "30,3" && back.length === 2 && back.every(a => a.WFWorkflowActionParameters.WFDuration.Value.Magnitude === "1") && dayEnds === 4 &&
-    !JSON.stringify(acts).includes('"VariableName":"Repeat Index"'), counts);
+  const dur = a => a.WFWorkflowActionParameters.WFDuration.Value.Magnitude + " " + a.WFWorkflowActionParameters.WFDuration.Value.Unit;
+  check("v4: the first run goes back 30 days, daily runs 3 (today first), a fixed 1 day back each pass (Day End), reading from 3 hours before",
+    counts === "30,3" && back.map(dur).join() === "1 days,3 hr,1 days,3 hr" && dayEnds === 4 &&
+    !JSON.stringify(acts).includes('"VariableName":"Repeat Index"'), back.map(dur).join());
   const byDay = finds.filter(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates.length > 2);
   check("v4: each day's Find: Start Date is between the day's start and the next day's start (the date filter that works)",
     byDay.length === 4 && byDay.every(p => { const r = p.WFContentItemFilter.Value.WFActionParameterFilterTemplates;
@@ -287,6 +288,11 @@ check("upload reader alone: nothing usable -> error", (() => { try { readHealthU
     check("v5: an app (HUAWEI Health) only fills quarters the phone left empty; the phone called iMone is known by `device` " +
       "(150 + 150 from the phone, 300 + 200 from HUAWEI)", day(huawei, { device: "iMone" })["2026-10-28"].steps === 800 &&
       day(huawei)["2026-10-28"].steps === 1100, JSON.stringify(day(huawei, { device: "iMone" })));
+    const night = readHealthUpload({ v: "5", day: "2026-10-28", steps_values: "500\n600\n400", steps_sources: "iPhone\niPhone\niPhone",
+      steps_starts: "2026-10-27 22:00:00\n2026-10-27 23:30:00\n2026-10-28 23:45:00",
+      steps_ends: "2026-10-27 22:30:00\n2026-10-28 00:30:00\n2026-10-29 00:15:00" });
+    check("v5: only the day's own quarter hours count: a reading across midnight in part on each day (300 + 200), the evening before not at all",
+      night["2026-10-28"].steps === 500, JSON.stringify(night));
     check("v5: entries made in the Health app itself come first",
       day([[5000, "Health", "12:00:00"], [800, "Apple Watch", "12:05:00"]])["2026-10-28"].steps === 5000);
     const bad = day(walk, { steps_starts: "Oct 28, 2026 at 9:00 AM\n\n" });
