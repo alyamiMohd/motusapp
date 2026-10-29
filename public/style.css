@@ -288,12 +288,12 @@ details > .recent { padding-left: 12px; font-size: 13px; }
 /* locked dashboard (signed in, no data yet): a sample that gets blurrier and darker towards the bottom, with one
    button on top; the person's own data unlocks it. Also used on Data. */
 .board { position: relative; }
-.board.locked { max-height: 720px; overflow: hidden; }
-.board.locked > :not(.unlock) { filter: blur(3px); pointer-events: none; user-select: none; }
-.board.locked::before, .board.locked::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1; }
-.board.locked::before { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 45%); mask-image: linear-gradient(to bottom, transparent 0, #000 45%); }
-.board.locked::after { background: linear-gradient(to bottom, rgba(0, 0, 0, .1) 0, rgba(0, 0, 0, .55) 35%, #000 75%); }
+/* the box reaches past the page padding so the blur is never clipped into a hard edge; the sample itself
+   fades to the background towards the bottom (no separate overlay box, which showed its own edges) */
+.board.locked { margin: 0 -16px; padding: 12px 16px 0; max-height: 560px; overflow: hidden; }
+.board.locked > .sample { filter: blur(5px); pointer-events: none; user-select: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, rgba(0, 0, 0, .55) 180px, rgba(0, 0, 0, .15) 360px, transparent 500px);
+          mask-image: linear-gradient(to bottom, #000 0, rgba(0, 0, 0, .55) 180px, rgba(0, 0, 0, .15) 360px, transparent 500px); }
 .unlock { position: absolute; z-index: 2; left: 0; right: 0; top: 96px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
 .unlock[hidden] { display: none; }
 .unlock b { font-size: 24px; font-weight: 600; letter-spacing: -.01em; }

@@ -23,12 +23,14 @@
   <p class="banner" id="banner" hidden></p>
   <div class="board" id="board">
     <div class="unlock" id="unlock" hidden><b>Integrate your data</b><a class="btn" href="connect.html">Connect apps</a></div>
-    <table id="table">
-      <thead><tr><th>Week</th><th>Sleep</th><th>Steps</th><th>Cal</th><th id="kg">Kg</th><th>Lifts</th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
-    <button class="more" id="more" hidden></button>
-    <p class="foot"><button class="more inline" id="csv" type="button">Download CSV</button></p>
+    <div class="sample">
+      <table id="table">
+        <thead><tr><th>Week</th><th>Sleep</th><th>Steps</th><th>Cal</th><th id="kg">Kg</th><th>Lifts</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <button class="more" id="more" hidden></button>
+      <p class="foot"><button class="more inline" id="csv" type="button">Download CSV</button></p>
+    </div>
   </div>
 </main>
 <script type="module" src="js/pages/weeks.js"></script>
