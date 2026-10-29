@@ -2,7 +2,7 @@
 
 **Project:** Motus (public app): a fitness dashboard anyone can use. Sign in with an emailed code; everything personal lives in the **Profile** (Integrations: Apple Health, Health Connect, Hevy, Strong, MyFitnessPal; Friends; Privacy; Standards; About; Account). Menu: Home, Workouts (with a tracker), Data. Visitors see a demo on Home; signed-in people without data see a blurred, locked sample until their apps send numbers.
 **Repo:** https://github.com/alyamiMohd/motusapp (public, `main`). **Live (with accounts): https://motus.motusapp.workers.dev** (Cloudflare: account subdomain `motusapp`, Worker `motus`, D1 `motus` id 4757ecc4-340b-41d4-a641-1f742da8af25, region WEUR, cron every 30 min). Pages without accounts: https://alyamimohd.github.io/motusapp/ (its Connect page links to the live app).
-**Last updated:** 2026-10-29 (UTC+03, Riyadh) · last code commit `8e5515d` (locked starter look); deploy recorded in conversation-log.md
+**Last updated:** 2026-10-29 (UTC+03, Riyadh) · last code commit `8e5515d` (locked starter look), deployed as version 10df2482
 **Obsolete:** `alyamiMohd/motus-sync` (template for the earlier GitHub-copy sync, rejected as onboarding); its copies would fail now. Ask the owner before archiving/deleting it.
 
 ## Instructions for Claude
