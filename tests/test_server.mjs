@@ -117,6 +117,11 @@ check("no token / wrong token: refused", (await up({ v: 1, steps: "2026-10-26|1"
 check("nothing readable: refused", (await up({ hello: 1 })).status === 400 && (await up("{not json")).status === 400);
 r = await up({ days: { "2026-10-28": { steps: 300 } } });
 check("plain daily numbers work too", r.status === 200);
+r = await up({ v: "3", active: "" });
+const r2 = await up({ v: "3", steps: "2026-10-27|5000|1\n2026-10-27|6100|2" });
+health = (await call("GET", "/api/data", { cookie: sara })).json.sources.health.data.days;
+check("v3 parts: an empty part is fine, and a steps-only part keeps the day's other numbers",
+  r.status === 200 && r.json.days === 0 && r2.status === 200 && health["2026-10-27"].steps === 6100 && health["2026-10-27"].weight_kg === 77.7, r.text);
 const b64 = Buffer.from(JSON.stringify({ stepCount: [{ date: "2026-10-29", value: 4000 }] })).toString("base64");
 check("…and Health Exporter JSON as Base64", (await up({ health_b64: b64 })).status === 200);
 r = await call("GET", "/api/me", { cookie: sara });
@@ -182,19 +187,26 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
     d["2026-10-27"].calories === 1650 && d["2026-10-26"].active_kcal === 450 && d["2026-10-27"].weight_kg === 80.9 && d["2026-10-27"].sleep_hours === 6.67);
   const { build, toPlist } = await import("../tools/shortcut/build.mjs");
   const wf = build(), acts = wf.WFWorkflowActions, ids = acts.map(a => a.WFWorkflowActionIdentifier);
-  const post = acts.find(a => a.WFWorkflowActionIdentifier.endsWith("downloadurl")).WFWorkflowActionParameters;
-  const keys = post.WFJSONValues.Value.WFDictionaryFieldValueItems.map(i => i.WFKey.Value.string);
+  const posts = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("downloadurl")).map(a => a.WFWorkflowActionParameters);
+  const post = posts[0];
+  const keys = posts.map(p => p.WFJSONValues.Value.WFDictionaryFieldValueItems.map(i => i.WFKey.Value.string).join("+")).join();
   const labels = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("filter.health.quantity"))
     .map(a => a.WFWorkflowActionParameters.WFContentItemFilter.Value.WFActionParameterFilterTemplates[0].Values.Enumeration.Value);
-  check("Shortcut sends exactly the fields the server reads", keys.join() === "v,steps,calories,active,weight,sleep" && post.WFHTTPMethod === "POST");
-  const SIX = "Steps,Steps,Dietary Calories,Active Calories,Weight,Sleep";     // the first Steps finds the sources
-  check("Shortcut reads the five Health types, once for the first run and once for daily runs", labels.join() === SIX + "," + SIX, labels.join());
+  const PARTS = "v+calories+weight+sleep,v+steps,v+active";
+  check("Shortcut sends the fields the server reads, in three parts (food, weight, sleep; steps; energy), in both runs",
+    keys === PARTS + "," + PARTS && posts.every(p => p.WFHTTPMethod === "POST"), keys);
+  const SEVEN = "Dietary Calories,Weight,Sleep,Steps,Steps,Active Calories,Active Calories";   // the first of each pair finds the sources
+  check("Shortcut reads the five Health types, once for the first run and once for daily runs", labels.join() === SEVEN + "," + SEVEN, labels.join());
   const finds = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("filter.health.quantity")).map(a => a.WFWorkflowActionParameters);
   const days = finds.map(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates[1].Values.Number).join();
-  check("first run reads 30 days of everything; daily runs 2 days (a week of food and weight)", days === "30,30,30,30,30,30,2,2,7,2,7,2", days);
+  check("first run reads 30 days of everything; daily runs 2 days (a week of food and weight)", days === "30,30,30,30,30,30,30,7,7,2,2,2,2,2", days);
   const grouped = finds.map(p => (p.WFHKSampleFilteringGroupBy || "-") + (p.WFHKSampleFilteringFillMissing ? "+" : "")).join();
-  check("v3: steps, food and active energy are day totals (food and active energy fill missing days); weight and sleep raw",
-    grouped === "-,Day,Day+,Day+,-,-,-,Day,Day+,Day+,-,-", grouped);
+  check("v3: food (filling missing days), steps and active energy are day totals; weight, sleep and the source lookups raw",
+    grouped === "Day+,-,-,-,Day,-,Day,Day+,-,-,-,Day,-,Day", grouped);
+  const lists = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("setvariable")).map(a => a.WFWorkflowActionParameters.WFVariableName);
+  check("v3: steps and energy each find their own sources, with quotes and backslashes escaped before the JSON is read",
+    lists.filter(n => n === "Steps Sources").length === 2 && lists.filter(n => n === "Active Sources").length === 2 &&
+    acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("text.replace") && a.WFWorkflowActionParameters.WFReplaceTextFind === '"').length === 4);
   const bySource = finds.filter(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates.some(r => r.Property === "Source"));
   const asText = r => r.Values.String.WFSerializationType === "WFTextTokenString" &&
     JSON.stringify(Object.values(r.Values.String.Value.attachmentsByRange)) === '[{"Type":"Variable","VariableName":"Repeat Item"}]';

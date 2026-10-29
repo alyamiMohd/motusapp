@@ -161,6 +161,7 @@ async function upload(req, env) {
   if (payload && typeof payload === "object") {
     const shape = {};
     for (const k of ["steps", "calories", "active", "weight", "sleep"]) {
+      if (!(k in payload)) continue;                     // v3 sends in parts
       if (typeof payload[k] !== "string") { shape[k] = typeof payload[k]; continue; }
       const ls = payload[k].split(/\r?\n/).filter(Boolean), first = (ls[0] || "").split("|");
       // field 2 is a unit, except in v2 steps, where it is a device name: masked then
@@ -171,7 +172,11 @@ async function upload(req, env) {
     }
     console.log("upload shape:", JSON.stringify(shape), "| hijri exact:", HIJRI_EXACT);
   }
-  if (!Object.keys(days).length) return fail(400, "No steps, sleep, calories or weight in this upload.");
+  if (!Object.keys(days).length) {
+    // v3 sends in parts; a part with nothing in the window (no energy recorded in 2 days, say) is fine
+    if (payload && +payload.v >= 3) return json({ ok: true, days: 0 });
+    return fail(400, "No steps, sleep, calories or weight in this upload.");
+  }
   await mergeInto(env, row.user_id, "health", { days });
   await env.DB.prepare("UPDATE upload_tokens SET used = ? WHERE token_hash = ?").bind(Date.now(), hash).run();
   return json({ ok: true, days: Object.keys(days).length });

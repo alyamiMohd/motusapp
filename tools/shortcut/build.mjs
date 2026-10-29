@@ -5,7 +5,8 @@
 // What it does, matching public/shortcut.html and readHealthUpload in public/js/health.js:
 //   Finish in Motus runs it with "<upload url>|<token>" as input; it keeps that in motus.txt (Shortcuts folder).
 //   Every run reads Steps and Active Calories (a day total per source), Dietary Calories (day totals), Weight and
-//   Sleep (raw samples), and POSTs them as text lines to the upload URL. Signed by .github/workflows/sign-shortcut.yml.
+//   Sleep (raw samples), and POSTs them as text lines to the upload URL in three parts. Signed by
+//   .github/workflows/sign-shortcut.yml.
 //
 // The plist format is not documented by Apple. Every action shape here was copied from real iOS exports:
 // viticci/shortcuts-playground-plugin (HEALTHKIT.md, golden-shortcuts) and danielhopkins/apple-tools
@@ -129,30 +130,39 @@ function healthBlock(varName, label, days, groupByDay, fields, pattern, fillMiss
   return [find, ...body, setVar(varName, out(uuidOf(body.at(-1)), "Combined Text"))];
 }
 
-// The sources (iPhone, Watch, ring, apps) that counted steps in the window, each once, in the variable Sources: their
-// names joined into {"a":1,"b":1} and read back as a dictionary, whose keys can't repeat. The names stay on the phone.
-function sourcesBlock(days) {
-  const find = findSamples("Steps", days, false);
+// The sources (iPhone, Watch, ring, apps) with samples of this type in the window, each once, in the variable
+// sourcesVar: their names joined into {"a":1,"b":1} and read back as a dictionary, whose keys can't repeat. Quotes and
+// backslashes in a name are escaped first so the JSON always reads. The names stay on the phone.
+const SEP = "␞";                     // joins the names before escaping; no device is called that
+const replace = (input, find, by) => act("text.replace", { UUID: uid(), WFInput: text(input), WFReplaceTextFind: find,
+  WFReplaceTextReplace: text(by) });
+function sourcesBlock(label, days, sourcesVar) {
+  const find = findSamples(label, days, false);
   const src = act("properties.health.quantity", { UUID: uid(), CustomOutputName: "Source", WFContentItemPropertyName: "Source",
     WFInput: attach(out(uuidOf(find), "Health Samples")) });
-  const joined = act("text.combine", { UUID: uid(), WFTextSeparator: "Custom", WFTextCustomSeparator: '":1,"',
+  const joined = act("text.combine", { UUID: uid(), WFTextSeparator: "Custom", WFTextCustomSeparator: SEP,
     text: attach(out(uuidOf(src), "Source")) });
-  const json = act("gettext", { UUID: uid(), WFTextActionText: text('{"', out(uuidOf(joined), "Combined Text"), '":1}') });
+  const r1 = replace(out(uuidOf(joined), "Combined Text"), "\\", "\\\\");
+  const r2 = replace(out(uuidOf(r1), "Updated Text"), '"', '\\"');
+  const r3 = replace(out(uuidOf(r2), "Updated Text"), SEP, '":1,"');
+  const json = act("gettext", { UUID: uid(), WFTextActionText: text('{"', out(uuidOf(r3), "Updated Text"), '":1}') });
   const dict = act("detect.dictionary", { UUID: uid(), WFInput: attach(out(uuidOf(json), "Text")) });
   const keys = act("getvalueforkey", { UUID: uid(), WFGetDictionaryValueType: "All Keys", WFInput: attach(out(uuidOf(dict), "Dictionary")) });
-  return [find, src, joined, json, dict, keys, setVar("Sources", out(uuidOf(keys), "Dictionary Value"))];
+  return [find, src, joined, r1, r2, r3, json, dict, keys, setVar(sourcesVar, out(uuidOf(keys), "Dictionary Value"))];
 }
 
-// v3: one total per day for each source on its own, "day|value[|unit]|n" with n the source's place in Sources (a
+// v3: one total per day for each source on its own, "day|value[|unit]|n" with n the source's place in the list (a
 // number, never a device name). Health's day totals in Shortcuts add every source together (an iPhone and a Watch
 // counting the same walk twice); this way the server keeps the busiest source each day, as the Health app roughly
-// does. Day totals keep the upload small: iOS refuses to send thousands of single samples.
-function perSourceBlock(varName, label, days, fields, fillMissing) {
-  const g = uid(), endUUID = uid();
-  const find = findSamples(label, days, true, fillMissing, named("Repeat Item"));
+// does. Day totals keep the upload small: iOS refuses to send thousands of single samples. Each type finds its own
+// sources, so every source asked has samples of that type (a ring or an app may count steps but no energy).
+function perSourceBlock(varName, label, days, fields) {
+  const g = uid(), endUUID = uid(), sourcesVar = varName + " Sources";
+  const find = findSamples(label, days, true, false, named("Repeat Item"));
   const combine = combineLines(endUUID);
   return [
-    act("repeat.each", { GroupingIdentifier: g, WFControlFlowMode: 0, UUID: uid(), WFInput: attach(named("Sources")) }),
+    ...sourcesBlock(label, days, sourcesVar),
+    act("repeat.each", { GroupingIdentifier: g, WFControlFlowMode: 0, UUID: uid(), WFInput: attach(named(sourcesVar)) }),
     find, ...sampleLines(find, fields, DAY, "Repeat Item 2", [named("Repeat Index")]),
     act("repeat.each", { GroupingIdentifier: g, WFControlFlowMode: 2, UUID: endUUID }),
     combine, setVar(varName, out(uuidOf(combine), "Combined Text")),
@@ -170,31 +180,33 @@ export function build() {
   const first = act("getitemfromlist", { UUID: uid(), WFItemSpecifier: "First Item", WFInput: attach(out(uuidOf(split), "Split Text")) });
   const last = act("getitemfromlist", { UUID: uid(), WFItemSpecifier: "Last Item", WFInput: attach(out(uuidOf(split), "Split Text")) });
 
-  // 2. Read Health. The first run (from Finish, so with input) fills the last 30 days; every later run (the daily
-  //    automation, or a tap) only the last 2, plus a week of food and weight to catch late entries.
+  // 2. Read Health and send it in three parts: food, weight and sleep, then steps, then active energy. Smaller uploads,
+  //    and if a run stops, the server has what came before and its log shows how far it got. The first run (from
+  //    Finish, so with input) fills the last 30 days; every later run (the daily automation, or a tap) only the last 2,
+  //    plus a week of food and weight to catch late entries.
+  const post = vars => act("downloadurl", {
+    UUID: uid(), Advanced: true, ShowHeaders: true, WFURL: text(named("Address")), WFHTTPMethod: "POST",
+    WFHTTPHeaders: dictItems([["Authorization", text("Bearer ", named("Token"))]]),
+    WFHTTPBodyType: "JSON",
+    WFJSONValues: dictItems([["v", text("3")], ...vars.map(k => [k.toLowerCase(), text(named(k))])]),
+  });
   const read = w => [
-    // Steps and Active Calories: a day total per source (v3, perSourceBlock). Every source in Sources counted steps in
-    // the window, so its steps are never empty; active energy fills missing days, as a ring or an app may count steps only
-    ...sourcesBlock(w.move),
-    ...perSourceBlock("Steps", "Steps", w.move, ["Start Date", "Value"], false),
     // the picker shows "Dietary Energy" but stores "Dietary Calories" (seen in the owner's re-shared Shortcut, 2026-10-28);
     // Fill Missing: days with nothing logged come back as 0 instead of a "No Samples Found" stop
     ...healthBlock("Calories", "Dietary Calories", w.food, true, ["Start Date", "Value", "Unit"], DAY, true),
-    ...perSourceBlock("Active", "Active Calories", w.move, ["Start Date", "Value", "Unit"], true),
     ...healthBlock("Weight", "Weight", w.food, false, ["Start Date", "Value", "Unit"], MIN),
     ...healthBlock("Sleep", "Sleep", w.move, false, ["Start Date", "End Date", "Value", "Source"], MIN),
+    post(["Calories", "Weight", "Sleep"]),
+    // Steps and Active Calories: a day total per source (v3, perSourceBlock)
+    ...perSourceBlock("Steps", "Steps", w.move, ["Start Date", "Value"]),
+    post(["Steps"]),
+    ...perSourceBlock("Active", "Active Calories", w.move, ["Start Date", "Value", "Unit"]),
+    post(["Active"]),
   ];
   const FIRST = { move: 30, food: 30 }, DAILY = { move: 2, food: 7 };
   const health = ifHasInput(read(FIRST), read(DAILY));
 
-  // 3. Send
-  const post = act("downloadurl", {
-    UUID: uid(), Advanced: true, ShowHeaders: true, WFURL: text(named("Address")), WFHTTPMethod: "POST",
-    WFHTTPHeaders: dictItems([["Authorization", text("Bearer ", named("Token"))]]),
-    WFHTTPBodyType: "JSON",
-    WFJSONValues: dictItems([["v", text("3")], ...["Steps", "Calories", "Active", "Weight", "Sleep"]
-      .map(k => [k.toLowerCase(), text(named(k))])]),
-  });
+  // 3. Back to Motus
   const back = act("text.replace", { UUID: uid(), WFInput: text(named("Address")),
     WFReplaceTextFind: "/api/upload", WFReplaceTextReplace: text("/connect.html?health=done") });
   const open = act("openurl", { UUID: uid(), WFInput: attach(out(uuidOf(back), "Updated Text")) });
@@ -205,7 +217,6 @@ export function build() {
       file, split, first, setVar("Address", out(uuidOf(first), "Item from List")),
       last, setVar("Token", out(uuidOf(last), "Item from List")),
       ...health,
-      post,
       ...ifHasInput([back, open]),           // after Finish: back to Motus → Connect
     ],
     WFWorkflowClientVersion: "1146.11.1",
