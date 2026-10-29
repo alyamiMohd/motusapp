@@ -44,7 +44,7 @@ async function find() {
     const { people } = await searchPeople(q);
     if (q !== last) return;
     $("results").innerHTML = people.map(p => row(p, p.relation)).join("");
-    say(people.length ? "" : "No one found. Private profiles show only for their exact @username.");
+    say(people.length ? "" : "No one found. Try their exact @username.");
   } catch (e) { say(esc(e.message), "bad"); }
 }
 $("q").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(find, 250); });
@@ -66,8 +66,7 @@ document.addEventListener("click", async e => {
 
 function privacyNote(me) {
   const pub = me && me.profile && me.profile.public;
-  $("privacy").innerHTML = (pub ? "Your profile is <b>public</b>: everyone on Motus can see your dashboard."
-    : "Your profile is <b>private</b>: only your friends can see your dashboard.") + ` Change it on your <a href="profile.html"><u>Profile</u></a>.`;
+  $("privacy").innerHTML = (pub ? "Everyone sees your numbers." : "Only friends see your numbers.") + ` <a href="profile.html"><u>Privacy</u></a>`;
 }
 
 initNav("profile");

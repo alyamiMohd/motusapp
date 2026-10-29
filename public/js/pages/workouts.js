@@ -7,7 +7,7 @@ import { autoRefresh } from "../account.js";
 let data, days, exercises, showAll = false, weekOffset = 0;
 
 const pctText = p => (p > 0 ? "+" : p < 0 ? "−" : "") + Math.abs(p * 100).toFixed(1) + "%";
-const scoreHTML = sc => sc == null ? '<span class="no">no data</span>' : `<span class="${sc >= 7 ? "good" : ""}">${sc.toFixed(1)}</span>`;
+const scoreHTML = sc => sc == null ? '<span class="no" title="No data">–</span>' : `<span class="${sc >= 7 ? "good" : ""}">${sc.toFixed(1)}</span>`;
 const workoutDates = () => Object.keys(days).filter(d => days[d].workout_count && d <= today).sort();
 const titles = d => esc((days[d].workout_titles || []).join(", "));
 

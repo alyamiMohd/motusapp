@@ -36,11 +36,10 @@ async function dashboard() {
   try {
     const d = await getPersonData(username);
     const data = dataFrom(toSources(d));
-    if (!data.sources.length) { why(`${esc(person.name || "@" + person.username)} hasn't connected any apps yet.`); $("dash").hidden = true; return; }
+    if (!data.sources.length) { why("No data yet."); $("dash").hidden = true; return; }
     drawDashboard(data, { own: person.relation === "self" });
     const newest = Object.keys(data.days).sort().pop();
-    $("foot").textContent = newest ? `Newest numbers from ${new Date(newest + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })}. ` +
-      "Green follows your own goals (Profile → Standards)." : "";
+    $("foot").textContent = newest ? `Updated ${new Date(newest + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "";
     $("dash").hidden = false; why("");
   } catch (e) { $("dash").hidden = true; why(esc(e.message)); }
 }
@@ -52,7 +51,7 @@ async function show() {
     try { const res = await fetch("/api/u/" + encodeURIComponent(username)); if (res.ok) p = await res.json(); } catch (e) {}
     if (!p || !p.username) { $("none").hidden = false; $("about").hidden = false; return; }
     card(p);
-    why(`<a href="connect.html"><u>Sign in to Motus</u></a> to add ${esc(p.name || "@" + p.username)} as a friend and see how they're doing.`);
+    why(`<a href="connect.html"><u>Sign in</u></a> to add as a friend.`);
     $("about").hidden = false;
     return;
   }
@@ -61,7 +60,7 @@ async function show() {
   card(person);
   buttons(person.relation);
   if (person.canSee) dashboard();
-  else { $("dash").hidden = true; why(`${esc(person.name || "@" + person.username)}'s dashboard is private. You'll see it once you're friends.`); }
+  else { $("dash").hidden = true; why("Private. Add as a friend to see."); }
 }
 
 $("rel").addEventListener("click", async e => {
@@ -72,8 +71,8 @@ $("rel").addEventListener("click", async e => {
   if (act === "decline" && !confirm(`Decline ${person.name || "@" + person.username}'s request?`)) return;
   b.disabled = true;
   try {
-    if (act === "add") { const r = await addFriend(username); say(r.relation === "friend" ? `You and ${who} are friends now.` : `Asked ${who}. You'll be friends when they accept.`, "ok"); }
-    if (act === "accept") { await acceptFriend(username); say(`You and ${who} are friends now.`, "ok"); }
+    if (act === "add") { const r = await addFriend(username); say(r.relation === "friend" ? "Friends now." : "Request sent.", "ok"); }
+    if (act === "accept") { await acceptFriend(username); say("Friends now.", "ok"); }
     if (act === "cancel" || act === "decline" || act === "remove") { await removeFriend(username); say(""); }
   } catch (err) { say(esc(err.message), "bad"); b.disabled = false; return; }
   show();

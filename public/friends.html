@@ -22,16 +22,13 @@
 <main class="connect friends">
   <a class="back" href="profile.html">‹ Profile</a>
   <h1>Friends</h1>
-  <p class="lead">See how your friends are doing. They see you too.</p>
 
   <section class="account" id="out" hidden>
-    <h2>Sign in first</h2>
-    <p class="what">Friends need a Motus account.</p>
-    <a class="btn" href="connect.html">Sign in</a>
+    <a class="btn wide" href="connect.html">Sign in</a>
   </section>
 
   <div id="in" hidden>
-    <p class="note" id="nouser" hidden>Pick a username on your <a href="profile.html"><u>Profile</u></a> so friends can find you and you can add them.</p>
+    <p class="note" id="nouser" hidden>Pick a username first: <a href="profile.html"><u>Profile</u></a> → Edit profile.</p>
 
     <div class="act search">
       <input class="key" id="q" type="search" autocomplete="off" autocapitalize="none" spellcheck="false"
@@ -40,10 +37,10 @@
     <p class="msg" id="m-find" role="status"></p>
     <ul class="people" id="results"></ul>
 
-    <section id="s-incoming" hidden><h2>Asking to be friends</h2><ul class="people" id="incoming"></ul></section>
+    <section id="s-incoming" hidden><h2>Asking you</h2><ul class="people" id="incoming"></ul></section>
     <section><h2>Your friends</h2><ul class="people" id="friends"></ul>
-      <p class="what" id="nofriends" hidden>No friends yet. Find someone above by their name or @username.</p></section>
-    <section id="s-outgoing" hidden><h2>Waiting for them</h2><ul class="people" id="outgoing"></ul></section>
+      <p class="what" id="nofriends" hidden>None yet. Search above.</p></section>
+    <section id="s-outgoing" hidden><h2>Sent</h2><ul class="people" id="outgoing"></ul></section>
 
     <p class="note" id="privacy"></p>
   </div>

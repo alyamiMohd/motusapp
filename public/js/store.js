@@ -73,10 +73,13 @@ export function restore(obj) {
   return valid.length;
 }
 
-// The merged view every page draws from: this device's sources, or the demo when there are none.
+// The merged view every page draws from: this device's sources. With none: the demo for visitors, and an empty
+// dashboard once signed in (the account's own numbers only, never made-up ones).
+const signedIn = () => { try { return !!JSON.parse(localStorage.getItem("motusapp-me") || "null"); } catch (e) { return false; } };
 export function getData(todayISO = today) {
   const state = load();
-  if (!Object.keys(SOURCES).some(id => state.sources[id])) return { ...generateDemo(todayISO), demo: true, sources: [] };
+  if (!Object.keys(SOURCES).some(id => state.sources[id]))
+    return signedIn() ? { days: {}, exercises: {}, demo: false, empty: true, sources: [] } : { ...generateDemo(todayISO), demo: true, sources: [] };
   return dataFrom(state.sources);
 }
 

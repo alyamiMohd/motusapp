@@ -259,3 +259,27 @@ details > .recent { padding-left: 12px; font-size: 13px; }
 /* the default picture (no photo yet): the Motus mark, enlarged past its empty margins, on a dark circle */
 .mark, .me > .mark { display: block; width: 100%; height: 100%; background: var(--line) url("brand/mark.png") 52% 46% / 150% no-repeat; }
 .me > .mark { width: 30px; height: 30px; }
+
+/* profile as a hub: short parts, each an icon and a word or two; links (Friends, Integrations) look like the rest */
+.hub .face { margin: 4px 0 20px; }
+.parts { border-bottom: 1px solid var(--line); }
+.parts > .int:last-child { border-bottom: 0; }
+.int .ico { flex: none !important; width: 40px; height: 40px; border-radius: 12px; background: var(--line); display: flex; align-items: center; justify-content: center; }
+.int .ico svg { width: 22px; height: 22px; fill: none; stroke: var(--text); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.int.row { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 6px 0; border-top: 1px solid var(--line); }
+.int.row > span:nth-child(2) { flex: 1; min-width: 0; }
+.int.row b { display: block; font-weight: 600; font-size: 15px; }
+.int.row small { display: block; margin-top: 2px; color: var(--muted); }
+.int.row small.good { color: var(--green); }
+.int.row i { width: 8px; height: 8px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(-45deg); margin-right: 4px; flex: none; }
+.int summary small:empty, .int.row small:empty { display: none; }
+.faces, .apps { display: flex; flex: none; align-items: center; }
+.faces .pic { width: 28px; height: 28px; border-radius: 50%; overflow: hidden; margin-left: -8px; box-shadow: 0 0 0 2px var(--bg); background: var(--line); }
+.faces .pic:first-child { margin-left: 0; }
+.faces .pic img { width: 100%; height: 100%; object-fit: cover; }
+.apps { gap: 4px; }
+.apps img { width: 24px; height: 24px; border-radius: 6px; }
+.hub .int .sheet { padding-left: 52px; }
+.hub #std { margin-top: -4px; }
+.btn.wide { width: 100%; }
+.hub .account { text-align: center; border: 0; }

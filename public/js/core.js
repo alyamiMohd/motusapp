@@ -51,7 +51,7 @@ export function workoutsBetween(days, from, to) {     // number of workouts, inc
 }
 
 // ---- formatting ----
-export const NO = '<span class="no">no data</span>';
+export const NO = '<span class="no" title="No data">–</span>';
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const int = v => Math.round(v).toLocaleString("en-US");
 export const one = v => v.toFixed(1);
@@ -93,7 +93,7 @@ export function refreshNav() {
   if (w && !w.classList.contains("on")) w.hidden = !s.workouts;
 }
 
-// ---- navbar: the pages and the profile button (Friends and Standards are part of the profile) ----
+// ---- navbar: the pages and the profile button (Integrations, Friends, Standards and the rest are in the profile) ----
 // The brand mark, found next to this module so it works on /u/<name> pages and under a sub-path (GitHub Pages) alike
 export const MARK = new URL("../brand/mark.png", import.meta.url).pathname;
 export function initNav(active) {
@@ -107,8 +107,7 @@ export function initNav(active) {
     <span class="links">
       ${link("./", "home", "Home")}
       ${link("workouts.html", "workouts", "Workouts").replace("<a ", s.workouts || active === "workouts" ? "<a " : "<a hidden ")}
-      ${link("weeks.html", "weeks", "Weeks")}
-      ${link("connect.html", "connect", "Connect")}
+      ${link("weeks.html", "weeks", "Data")}
     </span>
   </div>
 </nav>`);

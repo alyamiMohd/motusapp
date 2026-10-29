@@ -10,12 +10,14 @@ const load = () => { data = getData(); days = data.days; };
 function banner() {
   const el = document.getElementById("banner");
   if (data.demo) {
-    el.innerHTML = 'You’re looking at <b>demo data</b> from a made-up person. <a href="connect.html">Connect your apps</a> to see your own.';
+    el.innerHTML = '<b>Demo</b> · <a href="connect.html">Sign in</a> to see yours.';
+  } else if (data.empty) {
+    el.innerHTML = 'No data yet · <a href="connect.html">Connect your apps</a>';
   } else {
     const newest = Object.keys(days).filter(d => d <= today).sort().pop(), me = cachedMe();
     if (me && me.hevy && me.hevy.error) el.innerHTML = `Hevy didn't sync: ${esc(me.hevy.error)} <a href="connect.html">Connect it again</a>.`;
-    else if (newest && newest < add(today, -2)) el.innerHTML = `Your newest data is from ${DAY_SHORT[dow(newest)]} ${dayMonth(newest)}. ` +
-      (me && me.health && me.health.connected ? "Check that the Motus automation on your iPhone is on." : '<a href="connect.html">Connect your apps</a> to keep it up to date.');
+    else if (newest && newest < add(today, -2)) el.innerHTML = `Newest data: ${DAY_SHORT[dow(newest)]} ${dayMonth(newest)} · ` +
+      (me && me.health && me.health.connected ? "open Motus on your iPhone to update" : '<a href="connect.html">Connect your apps</a>');
     else { el.hidden = true; return; }
   }
   el.hidden = false;
@@ -23,7 +25,8 @@ function banner() {
 
 function footer() {
   const el = document.getElementById("foot");
-  if (data.demo) { el.textContent = "Demo data, made up in your browser. Nothing here is a real person."; return; }
+  if (data.demo) { el.textContent = "Made-up demo data."; return; }
+  if (data.empty) { el.textContent = ""; return; }
   const when = iso => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   el.textContent = "From " + data.sources.map(s => s.imported ? `${s.name} (updated ${when(s.imported)})` : s.name).join(", ") +
     (cachedMe() ? ". Kept in your Motus account." : ". Stored on this device only.");

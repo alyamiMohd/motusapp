@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
-<meta name="description" content="Your Motus profile: your name, photo and the username you can share.">
+<meta name="description" content="Your Motus profile: friends, integrations, privacy and goals.">
 <title>Motus · Profile</title>
 <meta name="theme-color" content="#000000">
 <meta property="og:image" content="https://motus.motusapp.workers.dev/brand/og.jpg">
@@ -19,62 +19,77 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main class="connect profile">
-  <h1>Profile</h1>
-
+<main class="connect profile hub">
+  <!-- signed out -->
   <section class="account" id="out" hidden>
-    <h2>Sign in first</h2>
-    <p class="what">Your profile belongs to your Motus account.</p>
-    <a class="btn" href="connect.html">Sign in</a>
+    <img class="hero" src="brand/mark-512.webp" alt="" width="180" height="180">
+    <a class="btn wide" href="connect.html">Sign in</a>
   </section>
 
-  <div id="in" hidden>
-    <div class="face">
-      <label class="photo" title="Change photo"><span id="initial" class="mark"></span><img id="photo" alt="" hidden>
-        <input type="file" id="f-photo" accept="image/*" aria-label="Change your photo"></label>
-      <div><b id="show-name"></b><small id="show-user"></small><br>
-        <button class="more inline" id="b-photo" type="button">Change photo</button>
-        <button class="more inline" id="b-nophoto" type="button" hidden>Remove</button></div>
-    </div>
-
-    <label class="field">Name
-      <input class="key" id="name" type="text" autocomplete="name" maxlength="60" placeholder="Your name"></label>
-    <label class="field">Username
-      <span class="handle"><span>@</span><input class="key" id="username" type="text" autocomplete="username" autocapitalize="none"
-        spellcheck="false" maxlength="20" placeholder="yourname" aria-label="Username"></span></label>
-    <div class="act"><button class="btn" id="b-save" type="button">Save</button></div>
-    <p class="msg" id="m-profile" role="status"></p>
-
-    <a class="go" href="friends.html"><span><b>Friends</b><small id="friends-sub">Find people and see how they're doing</small></span><i aria-hidden="true"></i></a>
-
-    <section>
-      <h2>Who can see your dashboard</h2>
-      <div class="seg" id="vis" role="group" aria-label="Who can see your dashboard">
-        <button type="button" data-v="0">Friends only</button><button type="button" data-v="1">Everyone on Motus</button></div>
-      <p class="note" id="vis-note"></p>
-    </section>
-
-    <section id="sharebox" hidden>
-      <h2>Share your profile</h2>
-      <p class="share"><a id="link" href=""></a></p>
-      <p class="note" id="share-note"></p>
-      <div class="act"><button class="btn ghost" id="b-share" type="button">Share</button><button class="btn ghost" id="b-copy" type="button">Copy link</button></div>
-    </section>
-
+  <!-- signed in: who you are -->
+  <div class="face" id="in" hidden>
+    <label class="photo" title="Change photo"><span id="initial" class="mark"></span><img id="photo" alt="" hidden>
+      <input type="file" id="f-photo" accept="image/*" aria-label="Change your photo"></label>
+    <div><b id="show-name"></b><small id="show-user"></small></div>
   </div>
 
-  <section class="standards">
-    <h2>Standards</h2>
-    <p class="note">Your goals: numbers that reach them turn green, on your dashboard and your friends'.</p>
-    <div id="std"></div>
-  </section>
+  <div class="parts">
+    <a class="int row" id="p-friends" href="friends.html" hidden>
+      <span class="ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.8"/><path d="M16.5 14.6c2.6.2 4.4 1.9 5 5"/></svg></span>
+      <span><b>Friends</b><small id="friends-sub"></small></span><span class="faces" id="faces"></span><i aria-hidden="true"></i></a>
 
-  <section id="acct" hidden>
-    <h2>Account</h2>
-    <p class="state">Signed in as <b id="email"></b></p>
-    <div class="act"><button class="btn ghost" id="b-out" type="button">Sign out</button><button class="btn danger" id="b-delete" type="button">Delete my account</button></div>
-    <p class="msg" id="m-account" role="status"></p>
-  </section>
+    <a class="int row" id="p-int" href="connect.html" hidden>
+      <span class="ico"><svg viewBox="0 0 24 24"><path d="M9 7V3M15 7V3"/><path d="M6 7h12v4a6 6 0 0 1-12 0z"/><path d="M12 17v4"/></svg></span>
+      <span><b>Integrations</b><small id="int-sub"></small></span><span class="apps" id="apps"></span><i aria-hidden="true"></i></a>
+
+    <details class="int" id="p-edit" hidden>
+      <summary><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></span><span><b>Edit profile</b></span><i aria-hidden="true"></i></summary>
+      <div class="sheet">
+        <label class="field">Name <input class="key" id="name" type="text" autocomplete="name" maxlength="60" placeholder="Your name"></label>
+        <label class="field">Username
+          <span class="handle"><span>@</span><input class="key" id="username" type="text" autocomplete="username" autocapitalize="none"
+            spellcheck="false" maxlength="20" placeholder="yourname" aria-label="Username"></span></label>
+        <div class="act"><button class="btn" id="b-save" type="button">Save</button>
+          <button class="btn ghost" id="b-photo" type="button">Photo</button><button class="btn ghost" id="b-nophoto" type="button" hidden>Remove photo</button></div>
+        <p class="msg" id="m-profile" role="status"></p>
+      </div>
+    </details>
+
+    <details class="int" id="p-privacy" hidden>
+      <summary><span class="ico"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span><span><b>Privacy</b><small id="vis-sub"></small></span><i aria-hidden="true"></i></summary>
+      <div class="sheet">
+        <div class="seg" id="vis" role="group" aria-label="Who can see your dashboard">
+          <button type="button" data-v="0">Friends</button><button type="button" data-v="1">Everyone</button></div>
+        <p class="note" id="vis-note"></p>
+        <div id="sharebox" hidden>
+          <p class="share"><a id="link" href=""></a></p>
+          <div class="act"><button class="btn ghost" id="b-share" type="button">Share</button><button class="btn ghost" id="b-copy" type="button">Copy link</button></div>
+        </div>
+        <p class="msg" id="m-privacy" role="status"></p>
+      </div>
+    </details>
+
+    <details class="int" id="p-std">
+      <summary><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".8"/></svg></span><span><b>Standards</b><small>Your goals</small></span><i aria-hidden="true"></i></summary>
+      <div class="sheet"><div id="std"></div></div>
+    </details>
+
+    <details class="int" id="p-about">
+      <summary><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span><span><b>About</b></span><i aria-hidden="true"></i></summary>
+      <div class="sheet">
+        <p class="what">All your health apps in one place.</p>
+        <p class="what">Private by default. Nothing sold. No ads.</p>
+      </div>
+    </details>
+
+    <details class="int" id="p-acct" hidden>
+      <summary><span class="ico"><svg viewBox="0 0 24 24"><path d="M14 4h5v16h-5"/><path d="M10 8l-4 4 4 4M6 12h10"/></svg></span><span><b>Account</b><small id="email"></small></span><i aria-hidden="true"></i></summary>
+      <div class="sheet">
+        <div class="act"><button class="btn ghost" id="b-out" type="button">Sign out</button><button class="btn danger" id="b-delete" type="button">Delete account</button></div>
+        <p class="msg" id="m-account" role="status"></p>
+      </div>
+    </details>
+  </div>
 </main>
 <script type="module" src="js/pages/profile.js"></script>
 </body>

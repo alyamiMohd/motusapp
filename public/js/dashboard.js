@@ -34,7 +34,7 @@ function lastWeekLine(ws) {     // last week's averages; steps and weight also s
   const sign = d => (d > 0 ? "+" : d < 0 ? "−" : "±");
   const part = (k, fmt, u, noun, dec, good, compare, changeUnit) => {
     const cur = avgRange(days, k, from, to);
-    if (cur == null) return `<span class="no">no ${noun} data</span>`;
+    if (cur == null) return `<span class="no">– ${noun}</span>`;
     const prev = compare ? avgRange(days, k, pFrom, pTo) : null;
     const d = prev == null ? null : cur - prev;
     const dTxt = d == null ? "" : ` (${sign(+d.toFixed(dec))}${fmt(Math.abs(d))}${changeUnit || ""})`;
@@ -43,8 +43,8 @@ function lastWeekLine(ws) {     // last week's averages; steps and weight also s
   const w = v => one(toDisp(v)), workouts = workoutsBetween(days, from, to);
   return `<div class="wide lastweek"><small>Last Week: ` + [
     part("sleep_hours", one, "h sleep", "sleep", 1, cur => cur >= prefs.sleep, false),
-    part("steps", int, "steps", "step", 0, cur => cur >= prefs.steps, true),
-    part("calories", int, "kcal", "calorie", 0, cur => cur <= prefs.calories, false),
+    part("steps", int, "steps", "steps", 0, cur => cur >= prefs.steps, true),
+    part("calories", int, "kcal", "kcal", 0, cur => cur <= prefs.calories, false),
     part("weight_kg", w, unit(), "weight", 1, (cur, d) => d != null && d < 0 && -d >= prefs.weight, true, " " + unit()),
     `<span class="${workouts >= prefs.workouts ? "good2" : ""}">${workouts} workout${workouts === 1 ? "" : "s"}</span>`,
   ].join(' <span class="sep">|</span> ') + "</small></div>";

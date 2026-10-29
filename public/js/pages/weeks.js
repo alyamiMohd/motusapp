@@ -1,10 +1,10 @@
-// Weeks: one row per completed week, newest first, with a CSV download of the whole history.
+// Data (weeks.html): one row per completed week, newest first, with a CSV download of the whole history.
 import { prefs, add, dayMonth, one, int, unit, toDisp, initNav, download } from "../core.js";
 import { getData } from "../store.js";
 import { buildWeeks } from "../stats.js";
 import { autoRefresh } from "../account.js";
 
-const SHOWN = 12, NODATA = '<span class="no">no data</span>';
+const SHOWN = 12, NODATA = '<span class="no" title="No data">–</span>';
 let data, weeks = [], showAll = false;
 
 const span = w => (w.start.slice(5, 7) === w.end.slice(5, 7) ? String(+w.start.slice(8)) : dayMonth(w.start)) + "–" + dayMonth(w.end);
@@ -47,9 +47,9 @@ function show() {
   data = getData();
   render();
   const el = document.getElementById("banner");
-  el.innerHTML = 'Demo weeks. <a href="connect.html">Connect your apps</a> to see your own history.';
-  el.hidden = !data.demo;
+  el.innerHTML = data.demo ? '<b>Demo</b> · <a href="connect.html">Sign in</a> to see yours.' : 'No data yet · <a href="connect.html">Connect your apps</a>';
+  el.hidden = !data.demo && !data.empty;
 }
-initNav("weeks", render);
+initNav("weeks");
 show();
 autoRefresh().then(changed => { if (changed) show(); });

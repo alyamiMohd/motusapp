@@ -164,6 +164,8 @@ function refresh() {
   $("acct-out").hidden = !available || !!me;
   $("acct-none").hidden = available || !!me;
   $("integrations").hidden = !me;
+  $("title").textContent = me || !available ? "Integrations" : "Sign in";
+  $("back").hidden = !me;
   if (!me) return;
 
   const hl = me.health && me.health.connected ? me.health : null;
@@ -191,7 +193,7 @@ function refresh() {
 }
 $("u-strong").addEventListener("change", () => { $("u-strong").dataset.touched = "1"; });
 
-initNav("connect", refresh);
+initNav("profile");
 refresh();
 checkAccount().then(async r => {
   available = r.available;
@@ -200,7 +202,7 @@ checkAccount().then(async r => {
   if (back) history.replaceState(null, "", location.pathname + "#health");
   refresh();
   if (back === "done") {
-    say("live-health", "Apple Health is connected. From now on Motus updates it by itself whenever you open Motus on this iPhone.", "ok");
+    say("live-health", "Apple Health is connected.", "ok");
     $("health-off").dataset.redo = "1"; $("health-off").hidden = false; $("health-on").hidden = true;
   }
   if (back === "updated") say("live-health", "Updated from Apple Health.", "ok");
