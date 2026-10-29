@@ -159,6 +159,13 @@ function fromShortcutDay(p) {
   return days;
 }
 
+// minutes covered by a list of [start, end] spans, overlaps counted once
+const covered = spans => {
+  let total = 0, end = -Infinity;
+  for (const [a, b] of spans.sort((x, y) => x[0] - y[0])) { if (b > end) { total += b - Math.max(a, end); end = b; } }
+  return total;
+};
+
 function fromShortcut(p) {
   const days = {}, put = (d, k, v) => { (days[d] || (days[d] = {}))[k] = v; };
   const v2 = +p.v >= 2;
@@ -215,11 +222,6 @@ function fromShortcut(p) {
     const day = sleep[sleepDay(b)] || (sleep[sleepDay(b)] = {});
     (day[source || "?"] || (day[source || "?"] = [])).push([a.mins, b.mins]);
   }
-  const covered = spans => {
-    let total = 0, end = -Infinity;
-    for (const [a, b] of spans.sort((x, y) => x[0] - y[0])) { if (b > end) { total += b - Math.max(a, end); end = b; } }
-    return total;
-  };
   for (const [d, bySrc] of Object.entries(sleep))
     put(d, "sleep_hours", Math.round(Math.max(...Object.values(bySrc).map(covered)) / 60 * 100) / 100);
   return days;
@@ -238,6 +240,66 @@ export function fromHealthExporterJSON(obj) {
   put("activeCalories", "active_kcal", (v, u) => Math.round(energy(v, u)));
   put("weight", "weight_kg", (v, u) => Math.round(toKg(v, u || "kg") * 10) / 10);
   return { days };
+}
+
+// Android: HC Webhook's JSON (github.com/mcnaveen/health-connect-webhook, docs/webhook.md). The settings file Motus
+// hands it asks for Health Connect's daily totals of steps, active energy and food ("count overlapping apps once",
+// in Health Connect's own source priority, so no merging is needed here) and for weight and sleep records. Times
+// are ISO 8601: with an offset they are the phone's local time already; in UTC they're moved into `timezone`.
+export function fromHealthConnect(p) {
+  if (typeof p === "string") p = JSON.parse(p);
+  if (!p || typeof p !== "object") throw new Error("Expected a JSON object.");
+  const tz = typeof p.timezone === "string" && p.timezone !== "UTC" ? p.timezone : null;
+  let fmt = null;
+  try { if (tz) fmt = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23" }); } catch (e) { fmt = null; }
+  const wall = iso => {                         // the phone's wall-clock time as {date, mins}
+    const s = String(iso || "");
+    if (/[+-]\d{2}:?\d{2}$/.test(s) || !fmt) return when(s.replace("T", " "));
+    const d = new Date(s);
+    if (isNaN(d)) return null;
+    const x = Object.fromEntries(fmt.formatToParts(d).map(q => [q.type, q.value]));
+    return when(`${x.year}-${x.month}-${x.day} ${x.hour}:${x.minute}`);
+  };
+  const days = {}, add = (d, k, v) => { const r = days[d] || (days[d] = {}); r[k] = (r[k] || 0) + v; };
+  const list = k => (Array.isArray(p[k]) ? p[k] : []);
+  // Daily totals (what the settings file asks for). HC Webhook reads the last 48 hours, so the oldest day's total
+  // starts at the window's start and counts only the rest of that day; the whole day came in an earlier sync. A total
+  // that ends at midnight without starting at one is that part-day, and is left out.
+  const dayOf = r => {
+    const a = wall(r.start_time), b = wall(r.end_time);
+    return a && !(a.mins % 1440 && b && b.mins % 1440 === 0) ? a.date : null;
+  };
+  for (const r of list("steps")) { const d = dayOf(r), n = +r.count; if (d && n > 0) add(d, "steps", n); }
+  for (const r of list("active_calories")) { const d = dayOf(r), n = +r.calories; if (d && n > 0) add(d, "active_kcal", n); }
+  for (const r of list("nutrition")) { const d = dayOf(r), n = +r.calories; if (d && n > 0) add(d, "calories", n); }
+  const weights = {};
+  for (const r of list("weight")) {
+    const w = wall(r.time), kg = +r.kilograms;
+    if (w && kg > 0 && (!weights[w.date] || w.mins >= weights[w.date][0])) weights[w.date] = [w.mins, kg];
+  }
+  // sleep: the asleep stages (or the whole session when it has none), on the day you wake up, overlaps counted once
+  const ASLEEP = /sleep|light|deep|rem|^[2456]$/i, nights = {};
+  for (const s of list("sleep")) {
+    const stages = Array.isArray(s.stages) && s.stages.length ? s.stages.filter(x => ASLEEP.test(String(x.stage)))
+      : [{ start_time: s.start_time, end_time: s.session_end_time, duration_seconds: s.duration_seconds }];
+    for (const x of stages) {
+      const b = wall(x.end_time || s.session_end_time), a = x.start_time ? wall(x.start_time) : b && { mins: b.mins - (+x.duration_seconds || 0) / 60 };
+      if (!a || !b || b.mins - a.mins <= 0 || b.mins - a.mins >= 24 * 60) continue;
+      (nights[sleepDay(b)] || (nights[sleepDay(b)] = [])).push([a.mins, b.mins]);
+    }
+  }
+  const out = {};
+  for (const [d, r] of Object.entries(days)) out[d] = Object.fromEntries(Object.entries(r).map(([k, v]) => [k, Math.round(v)]));
+  for (const [d, [, kg]] of Object.entries(weights)) (out[d] || (out[d] = {})).weight_kg = Math.round(kg * 10) / 10;
+  for (const [d, spans] of Object.entries(nights)) (out[d] || (out[d] = {})).sleep_hours = Math.round(covered(spans) / 60 * 100) / 100;
+  // cleaned like every other upload
+  const res = {};
+  for (const [d, r] of Object.entries(out)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    for (const k of BODY) { const v = clean(k, r[k]); if (v != null) (res[d] || (res[d] = {}))[k] = v; }
+  }
+  return res;
 }
 
 const fromB64 = t => new TextDecoder().decode(Uint8Array.from(atob(String(t).replace(/\s+/g, "")), c => c.charCodeAt(0)));

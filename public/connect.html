@@ -5,180 +5,128 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
-<meta name="description" content="Connect Hevy and Apple Health once and Motus keeps itself up to date. Or import a file from Apple Health, Hevy, Strong, MyFitnessPal or a spreadsheet.">
+<meta name="description" content="Connect Apple Health, Health Connect, Hevy, Strong and MyFitnessPal once, and Motus keeps itself up to date.">
 <title>Motus · Connect</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <main class="connect">
-  <h1>Connect your apps</h1>
-  <p class="lead">Connect once and Motus keeps itself up to date.</p>
+  <h1>Connect</h1>
+  <p class="lead">Connect your apps once and Motus keeps itself up to date.</p>
 
-  <section class="account" id="account" aria-labelledby="h-account">
-    <div id="acct-out" hidden>
-      <h2 id="h-account">Sign in</h2>
-      <p class="what">With your email. There's no password: we send you a 6-digit code.</p>
-      <div class="act">
-        <input class="key" id="a-email" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com" aria-label="Email">
-        <button class="btn" id="a-send" type="button">Send code</button>
-      </div>
-      <div class="act" id="a-codebox" hidden>
-        <input class="key" id="a-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" aria-label="The code from the email">
-        <button class="btn" id="a-verify" type="button">Sign in</button>
-      </div>
-      <p class="msg" id="m-account" role="status"></p>
+  <!-- signed out: sign in first, nothing else -->
+  <section class="account" id="acct-out" hidden aria-labelledby="h-account">
+    <h2 id="h-account">Sign in to connect your apps</h2>
+    <p class="what">With your email. There's no password: we send you a 6-digit code. New here? The same code makes your account.</p>
+    <div class="act">
+      <input class="key" id="a-email" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com" aria-label="Email">
+      <button class="btn" id="a-send" type="button">Send code</button>
     </div>
-    <p class="state" id="acct-in" hidden>Signed in as <b id="a-who"></b> · <button class="more inline" id="a-out" type="button">Sign out</button></p>
-    <p class="note" id="acct-none" hidden>Connected apps need a Motus account. <a href="https://motus.motusapp.workers.dev/connect">Open Motus here</a> to sign in and connect them. Files you import on this page stay on this device.</p>
+    <div class="act" id="a-codebox" hidden>
+      <input class="key" id="a-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" aria-label="The code from the email">
+      <button class="btn" id="a-verify" type="button">Sign in</button>
+    </div>
+    <p class="msg" id="m-account" role="status"></p>
+    <div class="icons" aria-hidden="true">
+      <img src="icons/apple-health.png" alt=""><img src="icons/health-connect.png" alt=""><img src="icons/hevy.png" alt=""><img src="icons/strong.png" alt=""><img src="icons/myfitnesspal.png" alt="">
+    </div>
   </section>
+  <p class="note" id="acct-none" hidden>Connecting apps needs a Motus account. <a href="https://motus.motusapp.workers.dev/connect">Open Motus here</a> to sign in.</p>
 
-  <section class="app" id="live-hevy" aria-labelledby="h-live-hevy">
-    <div class="app-head"><h2 id="h-live-hevy">Hevy</h2><span class="pill" id="p-hevy"></span></div>
-    <p class="what">Your workouts, ratings and estimated 1RM, kept up to date by themselves. Needs Hevy Pro.</p>
-    <div id="hevy-off">
-      <button class="btn" id="b-hevy" type="button">Connect Hevy</button>
-      <div id="hevy-paste" hidden>
-        <ol class="steps">
-          <li>On the Hevy page that just opened, copy your <b>API key</b> (if there isn't one, create it).</li>
-          <li>Come back here and tap <b>Paste key</b>.</li>
-        </ol>
-        <div class="act">
-          <button class="btn" id="b-paste" type="button">Paste key</button>
-          <input class="key" id="k-hevy" type="password" autocomplete="off" spellcheck="false" placeholder="or paste it here" aria-label="Hevy API key">
+  <!-- signed in: the integrations, each opening its own one-tap setup -->
+  <section id="integrations" hidden aria-labelledby="h-int">
+    <h2 id="h-int" class="divider">Integrations</h2>
+
+    <details class="int" id="health">
+      <summary><img src="icons/apple-health.png" alt=""><span><b>Apple Health</b><small id="t-health">iPhone: steps, sleep, weight, food, energy</small></span><i aria-hidden="true"></i></summary>
+      <div class="sheet">
+        <div id="health-off">
+          <p class="note" id="h-elsewhere" hidden>Open this page on your iPhone to connect Apple Health.</p>
+          <ol class="steps big" id="h-steps">
+            <li><a class="btn" id="b-shortcut" href="shortcut.html">Add the Motus Shortcut</a><br><small>Tap <b>Add Shortcut</b>, then come back here.</small></li>
+            <li><button class="btn" id="b-finish" type="button">Finish</button><br><small>Your iPhone asks to let Motus read Health: turn everything on and tap <b>Allow</b>. This first run brings in your last 30 days: keep Shortcuts open, with the screen on, until it brings you back here (about a minute).</small></li>
+            <li><b>That's it.</b> <small>Whenever you open Motus on this iPhone and Health hasn't been read for 12 hours, Motus runs the Shortcut and comes straight back. <b>Optional:</b> to keep it current even on days you don't open Motus, add a daily automation (Apple only lets you do this yourself): <b>Shortcuts</b> → <b>Automation</b> → <b>+</b> → <b>Time of Day</b> → a morning time, <b>Daily</b> → <b>Run Immediately</b> → <b>Next</b> → <b>Motus</b>.</small></li>
+          </ol>
         </div>
+        <div id="health-on" hidden>
+          <p class="state" id="s-health"></p>
+          <div class="act"><button class="btn" id="b-health-now" type="button">Update now</button><button class="btn ghost" id="b-health-again" type="button">Set up again</button><button class="btn danger" id="b-health-off" type="button">Disconnect</button></div>
+        </div>
+        <p class="msg" id="m-live-health" role="status"></p>
       </div>
-    </div>
-    <div id="hevy-on" hidden>
-      <p class="state" id="s-hevy"></p>
-      <div class="act"><button class="btn ghost" id="b-hevy-sync" type="button">Sync now</button><button class="btn danger" id="b-hevy-off" type="button">Disconnect</button></div>
-    </div>
-    <p class="msg" id="m-live-hevy" role="status"></p>
-  </section>
+    </details>
 
-  <section class="app" id="live-health" aria-labelledby="h-live-health">
-    <div class="app-head"><h2 id="h-live-health">Apple Health</h2><span class="pill" id="p-health"></span></div>
-    <p class="what">Steps, sleep, weight and food energy from your iPhone, every day. MyFitnessPal and other apps that write to Health come with it.</p>
-    <div id="health-off">
-      <p class="note" id="h-elsewhere" hidden>Open this page on your iPhone to connect Apple Health.</p>
-      <ol class="steps big" id="h-steps">
-        <li><a class="btn" id="b-shortcut" href="shortcut.html">Add the Motus Shortcut</a><br><small>Tap <b>Add Shortcut</b>, then come back here.</small></li>
-        <li><button class="btn" id="b-finish" type="button">Finish</button><br><small>Your iPhone asks to let Motus read Health: turn everything on and tap <b>Allow</b>. This first run brings in your last 30 days: keep Shortcuts open, with the screen on, until it brings you back here (about a minute).</small></li>
-        <li><b>That's it.</b> <small>Whenever you open Motus on this iPhone and Health hasn't been read for 12 hours, Motus runs the Shortcut and comes straight back. <b>Optional:</b> to keep it current even on days you don't open Motus, add a daily automation (Apple only lets you do this yourself): <b>Shortcuts</b> → <b>Automation</b> → <b>+</b> → <b>Time of Day</b> → a morning time, <b>Daily</b> → <b>Run Immediately</b> → <b>Next</b> → <b>Motus</b>.</small></li>
-      </ol>
-    </div>
-    <div id="health-on" hidden>
-      <p class="state" id="s-health"></p>
-      <div class="act"><button class="btn" id="b-health-now" type="button">Update now</button><button class="btn ghost" id="b-health-again" type="button">Set up again</button><button class="btn danger" id="b-health-off" type="button">Disconnect</button></div>
-    </div>
-    <p class="msg" id="m-live-health" role="status"></p>
-  </section>
+    <details class="int" id="android">
+      <summary><img src="icons/health-connect.png" alt=""><span><b>Health Connect</b><small id="t-android">Android: Samsung Health, Google Fit, Fitbit, HUAWEI…</small></span><i aria-hidden="true"></i></summary>
+      <div class="sheet">
+        <div id="android-off">
+          <ol class="steps big">
+            <li><a class="btn" href="https://play.google.com/store/apps/details?id=com.hcwebhook.app" rel="noopener" target="_blank">Get HC Webhook</a><br><small>A free app on Google Play that sends Health Connect's numbers to Motus every hour. It's not made by Motus. Health Connect itself is built into Android 14 and later (<a href="https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata" rel="noopener" target="_blank">get it here</a> on older phones).</small></li>
+            <li><button class="btn" id="b-android" type="button">Download setup file</button><br><small>It holds Motus's address and your private key, so there's nothing to type.</small></li>
+            <li><b>Import it in HC Webhook:</b> <small>open HC Webhook → <b>⋮</b> → <b>Settings backup</b> → <b>Import</b> → choose <b>motus-hc-webhook.json</b> (in Downloads). Then tap <b>Grant permissions</b> and allow steps, active calories, nutrition, weight and sleep.</small></li>
+            <li><b>That's it.</b> <small>Your phone sends the last 2 days every hour. Make sure the app you track with (Samsung Health, Google Fit, Fitbit, HUAWEI Health…) shares with Health Connect in its own settings.</small></li>
+          </ol>
+        </div>
+        <div id="android-on" hidden>
+          <p class="state" id="s-android"></p>
+          <div class="act"><button class="btn ghost" id="b-android-again" type="button">Download setup again</button><button class="btn danger" id="b-android-off" type="button">Disconnect</button></div>
+        </div>
+        <p class="msg" id="m-android" role="status"></p>
+      </div>
+    </details>
 
-  <section class="app" aria-labelledby="h-live-mfp">
-    <h2 id="h-live-mfp">MyFitnessPal</h2>
-    <p class="what">Comes in through Apple Health: in MyFitnessPal's settings, connect Apple Health and let it write your nutrition. Then connect Apple Health above.</p>
-  </section>
+    <details class="int" id="hevy">
+      <summary><img src="icons/hevy.png" alt=""><span><b>Hevy</b><small id="t-hevy">Workouts, ratings and estimated 1RM</small></span><i aria-hidden="true"></i></summary>
+      <div class="sheet">
+        <div id="hevy-off">
+          <p class="what">Needs Hevy Pro. Motus opens Hevy's key page; copy the key and come back.</p>
+          <button class="btn" id="b-hevy" type="button">Connect Hevy</button>
+          <div id="hevy-paste" hidden>
+            <ol class="steps">
+              <li>On the Hevy page that just opened, copy your <b>API key</b> (if there isn't one, create it).</li>
+              <li>Come back here and tap <b>Paste key</b>.</li>
+            </ol>
+            <div class="act">
+              <button class="btn" id="b-paste" type="button">Paste key</button>
+              <input class="key" id="k-hevy" type="password" autocomplete="off" spellcheck="false" placeholder="or paste it here" aria-label="Hevy API key">
+            </div>
+          </div>
+          <p class="note">No Hevy Pro? In Hevy: <b>Profile → Settings → Export &amp; Import Data → Export Workouts</b>, then
+            <label class="more inline file-link">choose the CSV<input type="file" id="f-hevy" accept=".csv,text/csv" hidden></label>.</p>
+        </div>
+        <div id="hevy-on" hidden>
+          <p class="state" id="s-hevy"></p>
+          <div class="act"><button class="btn ghost" id="b-hevy-sync" type="button">Sync now</button><button class="btn danger" id="b-hevy-off" type="button">Disconnect</button></div>
+        </div>
+        <p class="msg" id="m-live-hevy" role="status"></p>
+      </div>
+    </details>
 
-  <h2 class="divider">Or import a file</h2>
-  <details class="imports">
-    <summary><small>Apple Health export, Hevy or Strong CSV, MyFitnessPal export, a spreadsheet, or a day by hand</small></summary>
+    <details class="int" id="strong">
+      <summary><img src="icons/strong.png" alt=""><span><b>Strong</b><small id="t-strong">Workouts, as a file</small></span><i aria-hidden="true"></i></summary>
+      <div class="sheet">
+        <p class="what">Strong has no way to connect directly, so its workouts come as a file. In Strong: <b>Settings → Export Strong Data</b>, then:</p>
+        <div class="act">
+          <label class="btn file"><input type="file" id="f-strong" accept=".csv,text/csv">Choose Strong CSV</label>
+          <label class="unit">weights in <select id="u-strong" aria-label="Weight unit in the Strong file"><option value="kg">kg</option><option value="lb">lb</option></select></label>
+        </div>
+        <p class="msg" id="m-strong" role="status"></p>
+      </div>
+    </details>
 
-  <section class="app" id="apple" aria-labelledby="h-apple">
-    <div class="app-head"><h2 id="h-apple">Apple Health export</h2><span class="pill" data-src="apple"></span></div>
-    <p class="what">Your whole history at once: steps, sleep, food energy and weight.</p>
-    <ol>
-      <li>On your iPhone, open <b>Health</b> and tap your picture at the top right.</li>
-      <li>Tap <b>Export All Health Data</b>, then <b>Export</b>. It can take a few minutes.</li>
-      <li>Choose <b>Save to Files</b>.</li>
-      <li>Come back here and choose that <b>export.zip</b>.</li>
-    </ol>
-    <div class="act">
-      <label class="btn file"><input type="file" id="f-apple" accept=".zip,.xml,.json,application/zip,text/xml,application/json">Choose export.zip</label>
-    </div>
-    <p class="msg" id="m-apple" role="status"></p>
-    <p class="note">Big exports take a minute and are read on your phone. JSON files from the Health Exporter app work too.</p>
-  </section>
+    <details class="int" id="mfp">
+      <summary><img src="icons/myfitnesspal.png" alt=""><span><b>MyFitnessPal</b><small id="t-mfp">Food, through Apple Health or Health Connect</small></span><i aria-hidden="true"></i></summary>
+      <div class="sheet">
+        <p class="what">MyFitnessPal shares your food with your phone's health app, and Motus reads it from there.</p>
+        <ol class="steps">
+          <li>In MyFitnessPal's settings, connect <b>Apple Health</b> (iPhone) or <b>Health Connect</b> (Android) and let it write nutrition.</li>
+          <li>Connect <a href="#health">Apple Health</a> or <a href="#android">Health Connect</a> above.</li>
+        </ol>
+      </div>
+    </details>
 
-  <section class="app" id="hevy" aria-labelledby="h-hevy">
-    <div class="app-head"><h2 id="h-hevy">Hevy export</h2><span class="pill" data-src="hevy"></span></div>
-    <p class="what">For any Hevy account, Pro or not.</p>
-    <ol>
-      <li>In the Hevy app: <b>Profile → Settings → Export &amp; Import Data → Export Workouts</b>.</li>
-      <li>Save the CSV, then choose it here.</li>
-    </ol>
-    <div class="act">
-      <label class="btn file"><input type="file" id="f-hevy" accept=".csv,text/csv">Choose Hevy CSV</label>
-    </div>
-    <p class="msg" id="m-hevy" role="status"></p>
-  </section>
-
-  <section class="app" id="strong" aria-labelledby="h-strong">
-    <div class="app-head"><h2 id="h-strong">Strong</h2><span class="pill" data-src="strong"></span></div>
-    <p class="what">Workouts, estimated 1RM and ratings. Strong has no way to connect directly, so it comes as a file.</p>
-    <ol>
-      <li>In Strong: <b>Settings → Export Strong Data</b>.</li>
-      <li>Save the CSV, then choose it here.</li>
-    </ol>
-    <div class="act">
-      <label class="btn file"><input type="file" id="f-strong" accept=".csv,text/csv">Choose Strong CSV</label>
-      <label class="unit">weights in <select id="u-strong" aria-label="Weight unit in the Strong file"><option value="kg">kg</option><option value="lb">lb</option></select></label>
-    </div>
-    <p class="msg" id="m-strong" role="status"></p>
-    <p class="note">Most Strong files say their unit; this is used only when they don't.</p>
-  </section>
-
-  <section class="app" id="mfp" aria-labelledby="h-mfp">
-    <div class="app-head"><h2 id="h-mfp">MyFitnessPal export</h2><span class="pill" data-src="mfp"></span></div>
-    <p class="what">Calories eaten and weight, from MyFitnessPal Premium's data export.</p>
-    <ol>
-      <li>Ask for your data export on <b>myfitnesspal.com</b> (Settings → Export data). It arrives as a zip.</li>
-      <li>Choose the zip here, or the Nutrition Summary and Measurement Summary files inside it.</li>
-    </ol>
-    <div class="act">
-      <label class="btn file"><input type="file" id="f-mfp" accept=".zip,.csv,application/zip,text/csv" multiple>Choose zip or CSVs</label>
-      <label class="unit">weight in <select id="u-mfp" aria-label="Weight unit in the MyFitnessPal file"><option value="kg">kg</option><option value="lb">lb</option></select></label>
-    </div>
-    <p class="msg" id="m-mfp" role="status"></p>
-  </section>
-
-  <section class="app" id="csv" aria-labelledby="h-csv">
-    <div class="app-head"><h2 id="h-csv">Any other app</h2><span class="pill" data-src="csv"></span></div>
-    <p class="what">Google Fit, Health Connect, Fitbit, Garmin, Samsung Health, Oura, Withings… There's no direct connection for these yet. Put your daily numbers in a spreadsheet, one row per day, and save it as CSV.</p>
-    <div class="act">
-      <button class="btn ghost" id="t-csv" type="button">Download template</button>
-      <label class="btn file"><input type="file" id="f-csv" accept=".csv,text/csv">Choose CSV</label>
-      <label class="unit">weight in <select id="u-csv" aria-label="Weight unit when the column is just called weight"><option value="kg">kg</option><option value="lb">lb</option></select></label>
-    </div>
-    <p class="msg" id="m-csv" role="status"></p>
-    <p class="note">Columns: date (like 2026-10-25), sleep_hours, steps, calories, weight_kg or weight_lb, workouts, workout_minutes. Leave out what you don't track.</p>
-  </section>
-
-  <section class="app" id="manual" aria-labelledby="h-manual">
-    <div class="app-head"><h2 id="h-manual">Enter by hand</h2><span class="pill" data-src="manual"></span></div>
-    <p class="what">Add or fix a single day. What you type here wins over everything else.</p>
-    <div class="form" id="hand">
-      <label>Date <input type="date" id="h-date"></label>
-      <label>Sleep (hours) <input type="number" id="h-sleep_hours" inputmode="decimal" min="0" max="24" step="0.1"></label>
-      <label>Steps <input type="number" id="h-steps" inputmode="numeric" min="0" step="1"></label>
-      <label>Calories eaten <input type="number" id="h-calories" inputmode="numeric" min="0" step="1"></label>
-      <label><span>Weight (<span id="h-unit">kg</span>)</span> <input type="number" id="h-weight" inputmode="decimal" min="0" step="0.1"></label>
-    </div>
-    <div class="act"><button class="btn" id="b-manual" type="button">Save day</button></div>
-    <p class="msg" id="m-manual" role="status"></p>
-  </section>
-  </details>
-
-  <section class="mine" aria-labelledby="h-mine">
-    <h2 id="h-mine">Your data</h2>
-    <ul class="sources" id="sources"></ul>
-    <div class="act wrap">
-      <button class="btn ghost" id="backup" type="button">Download a backup</button>
-      <label class="btn file ghost"><input type="file" id="restore" accept=".json,application/json">Restore a backup</label>
-      <button class="btn danger" id="wipe" type="button">Delete everything</button>
-    </div>
-    <p class="msg" id="m-mine" role="status"></p>
-    <h2 id="privacy">Privacy</h2>
-    <p class="note">Signed in, your numbers are kept in your Motus account so they can arrive by themselves and show on any of your devices. Hevy's key is stored encrypted and used only to read your workouts; the Motus Shortcut sends only steps, sleep, weight and energy, with the name of the device that recorded each step and energy reading so a walk counted by your iPhone and your Watch isn't counted twice (the names are used for that and not kept). Nothing is sold or shared, and there's no tracking or advertising. Without an account, files you import stay in this browser on this device. Deleting your account removes everything from Motus at once.</p>
+    <p class="note privacy">Your numbers are kept in your Motus account so they arrive by themselves and show on any of your devices. Nothing is sold or shared, and there's no tracking or advertising. You can delete everything from your <a href="profile.html">profile</a>.</p>
   </section>
 </main>
 <script type="module" src="js/pages/connect.js"></script>

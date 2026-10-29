@@ -25,7 +25,9 @@ function weekStrip(ws) {        // first day -> last day of the week, filled on 
     const cls = ["dot", done ? "on" : prefs.days.includes(wd) ? "plan" : "", d === today ? "today" : "", d > today ? "future" : ""].join(" ");
     return `<div class="wd"><small>${DAY_LETTERS[wd]}</small><div class="${cls}">${+d.slice(8)}</div></div>`;
   }).join("");
-  return `<div class="wide"><div class="week" role="img" aria-label="Workout days this week">${dots}</div></div>`;
+  return `<div class="wide"><div class="weekhead"><small>Workout days</small>` +
+    `<span class="legend"><span><i style="background:var(--green)"></i>trained</span><span><i style="background:var(--gray)"></i>planned</span></span></div>` +
+    `<div class="week" role="img" aria-label="Workout days this week: green trained, gray planned">${dots}</div></div>`;
 }
 
 function lastWeekLine(ws) {     // last week's averages; steps and weight also show the change vs the week before

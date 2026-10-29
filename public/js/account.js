@@ -5,6 +5,7 @@
 import { load, setAll, putSource, clearAll, SERVER_SOURCES } from "./store.js";
 import { summarizeWorkouts } from "./stats.js";
 import { fromApiWorkouts } from "./importers/hevy.js";
+import { refreshNav } from "./core.js";
 
 const ME = "motusapp-me", ETAG = "motusapp-etag";
 const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
@@ -21,7 +22,7 @@ async function api(path, { method = "GET", body, headers = {} } = {}) {
     res = await fetch(path, { method, credentials: "same-origin", headers: { ...(body ? { "content-type": "application/json" } : {}), ...headers },
                               body: body === undefined ? undefined : JSON.stringify(body) });
   } catch (e) { throw Object.assign(new Error("Couldn't reach Motus. Check your connection."), { offline: true }); }
-  if (res.status === 401) { set(ME, null); set(ETAG, null); }
+  if (res.status === 401) { set(ME, null); set(ETAG, null); set(PHOTO, null); }
   if (res.status === 304) return { status: 304 };
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(data.error || `Motus answered with an error (${res.status}).`), { status: res.status });
@@ -54,13 +55,13 @@ export async function signIn(email, code) {
 
 export async function signOut() {
   await api("/api/auth/logout", { method: "POST" }).catch(() => {});
-  set(ME, null); set(ETAG, null);
+  set(ME, null); set(ETAG, null); set(PHOTO, null);
   clearAll();                       // the account's data doesn't stay on a device that signed out
 }
 
 export async function deleteAccount() {
   await api("/api/me", { method: "DELETE" });
-  set(ME, null); set(ETAG, null);
+  set(ME, null); set(ETAG, null); set(PHOTO, null);
   clearAll();
 }
 
@@ -87,6 +88,7 @@ export async function pull() {
 export async function autoRefresh() {
   let changed = false;
   try { changed = await pull(); } catch (e) {}
+  refreshNav();
   if (new URLSearchParams(location.search).has("health")) history.replaceState(null, "", location.pathname + location.hash);
   else runHealthIfDue();
   return changed;
@@ -140,6 +142,29 @@ export async function disconnect(kind) {
   await api("/api/" + kind, { method: "DELETE" });
   set(ETAG, null); await checkAccount(); await pull();
 }
+
+// Health Connect (Android): a fresh HC Webhook token, inside HC Webhook's own settings file ({ url, token, settings }).
+export async function androidSetup() {
+  const r = await api("/api/android", { method: "POST" });
+  set(ETAG, null);
+  return r;
+}
+
+// The profile: name, username and photo. The photo is also kept on this device for the navbar.
+const PHOTO = "motusapp-photo";
+export const cachedPhoto = () => get(PHOTO);
+export async function getProfile() {
+  const p = await api("/api/profile");
+  set(PHOTO, p.avatar || null);
+  return p;
+}
+export async function saveProfile(fields) {
+  const p = await api("/api/profile", { method: "PUT", body: fields });
+  set(PHOTO, p.avatar || null);
+  await checkAccount();
+  return p;
+}
+export const profileLink = username => location.origin + "/u/" + encodeURIComponent(username);
 
 // Apple Health: a fresh token for the Motus Shortcut, handed to it by running it once with the token as its input.
 export async function healthSetupLink() {

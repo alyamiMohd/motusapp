@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 CREATE INDEX IF NOT EXISTS sessions_user ON sessions (user_id);
 
--- the token inside someone's Motus Shortcut; only a hash is kept
+-- the token inside someone's Motus Shortcut; only a hash is kept. Android's HC Webhook token is kept here too, its
+-- hash written as "hc:<hash>" so the iPhone's and the Android phone's tokens can be told apart.
 CREATE TABLE IF NOT EXISTS upload_tokens (
   token_hash TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
@@ -62,6 +63,16 @@ CREATE TABLE IF NOT EXISTS workouts (
   start_time TEXT NOT NULL,
   data TEXT NOT NULL,
   PRIMARY KEY (user_id, id)
+);
+
+-- what someone shows of themselves (added 2026-10-29 with the owner's yes): a name, a username others can be given
+-- (motus.../u/<username>, unique, any case), and a small photo as a data: URL resized on the device. No health data.
+CREATE TABLE IF NOT EXISTS profiles (
+  user_id TEXT PRIMARY KEY,
+  name TEXT,
+  username TEXT UNIQUE COLLATE NOCASE,
+  avatar TEXT,
+  updated INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS rate (

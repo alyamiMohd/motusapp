@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="description" content="Your Motus profile: your name, photo and the username you can share.">
+<title>Motus · Profile</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="connect profile">
+  <h1>Profile</h1>
+
+  <section class="account" id="out" hidden>
+    <h2>Sign in first</h2>
+    <p class="what">Your profile belongs to your Motus account.</p>
+    <a class="btn" href="connect.html">Sign in</a>
+  </section>
+
+  <div id="in" hidden>
+    <div class="face">
+      <label class="photo" title="Change photo"><span id="initial"></span><img id="photo" alt="" hidden>
+        <input type="file" id="f-photo" accept="image/*" aria-label="Change your photo"></label>
+      <div><b id="show-name"></b><small id="show-user"></small><br>
+        <button class="more inline" id="b-photo" type="button">Change photo</button>
+        <button class="more inline" id="b-nophoto" type="button" hidden>Remove</button></div>
+    </div>
+
+    <label class="field">Name
+      <input class="key" id="name" type="text" autocomplete="name" maxlength="60" placeholder="Your name"></label>
+    <label class="field">Username
+      <span class="handle"><span>@</span><input class="key" id="username" type="text" autocomplete="username" autocapitalize="none"
+        spellcheck="false" maxlength="20" placeholder="yourname" aria-label="Username"></span></label>
+    <div class="act"><button class="btn" id="b-save" type="button">Save</button></div>
+    <p class="msg" id="m-profile" role="status"></p>
+
+    <section id="sharebox" hidden>
+      <h2>Share your profile</h2>
+      <p class="share"><a id="link" href=""></a></p>
+      <p class="note">Shows only your name, photo and username. Your numbers stay private.</p>
+      <div class="act"><button class="btn ghost" id="b-share" type="button">Share</button><button class="btn ghost" id="b-copy" type="button">Copy link</button></div>
+    </section>
+
+    <section>
+      <h2>Account</h2>
+      <p class="state">Signed in as <b id="email"></b></p>
+      <div class="act"><button class="btn ghost" id="b-out" type="button">Sign out</button><button class="btn danger" id="b-delete" type="button">Delete my account</button></div>
+      <p class="msg" id="m-account" role="status"></p>
+    </section>
+  </div>
+</main>
+<script type="module" src="js/pages/profile.js"></script>
+</body>
+</html>

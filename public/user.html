@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Motus</title>
+<!-- served at /u/<username>, so every path here starts at the root -->
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<nav><div class="bar"><a href="/" class="brand"><b>Motus</b></a></div></nav>
+<main class="connect profile public">
+  <div id="card" hidden>
+    <div class="photo"><span id="initial"></span><img id="photo" alt="" hidden></div>
+    <b id="name"></b>
+    <small id="user"></small>
+  </div>
+  <p class="what" id="none" hidden>There's no one on Motus with that username.</p>
+  <p class="note" style="margin-top:32px"><a href="/">What's Motus?</a></p>
+</main>
+<script type="module" src="/js/pages/user.js"></script>
+</body>
+</html>

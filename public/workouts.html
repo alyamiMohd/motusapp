@@ -12,7 +12,12 @@
 </head>
 <body>
 <main>
-  <p class="banner" id="banner" hidden></p>
+  <section class="connect" id="none" hidden>
+    <h1>Workouts</h1>
+    <p class="what">Connect a workout tracker and every session gets a rating, with your strength per exercise over time.</p>
+    <div class="act"><a class="btn" href="connect.html#hevy">Connect Hevy</a><a class="btn ghost" href="connect.html#strong">Connect Strong</a></div>
+  </section>
+  <div id="content">
   <h2 style="margin-top:0">Last workout rating</h2>
   <div class="score" id="last"></div>
 
@@ -32,6 +37,7 @@
     <summary><small>How ratings work</small></summary>
     <p class="note">Each exercise's best set is turned into an estimated one-rep max (weight × (1 + reps ÷ 30), sets of 12 reps or fewer, warm-ups left out). A workout compares each exercise with your average of its last four sessions: 7 is a normal day, up to 10 when you beat it by 10%, never below 3. Exercises you haven't done at least twice before are listed but not rated. The 4-week rating mixes progress (70%) with how often you trained against your goal (30%).</p>
   </details>
+  </div>
 </main>
 <script type="module" src="js/pages/workouts.js"></script>
 </body>

@@ -1,14 +1,13 @@
-// Connect: the account, connecting Hevy and Apple Health once, file imports, hand entry, and the person's own data.
-import { prefs, today, unit, fromDisp, toDisp, initNav, download, esc } from "../core.js";
-import { getData, putSource, removeSource, clearAll, backup, restore, load, SERVER_SOURCES } from "../store.js";
-import { importAppleHealth } from "../importers/apple.js";
+// Connect: sign in first; then the integrations, each with its own one-tap setup (Apple Health through the Motus
+// Shortcut, Health Connect through HC Webhook on Android, Hevy by its API key, Strong and Hevy without Pro as a file,
+// MyFitnessPal through the phone's health app).
+import { initNav, refreshNav, download, esc, prefs } from "../core.js";
+import { getData, putSource } from "../store.js";
 import { fromHevyCSV } from "../importers/hevy.js";
 import { fromStrongCSV } from "../importers/strong.js";
-import { importMfp } from "../importers/mfp.js";
-import { fromSheetCSV, template } from "../importers/sheet.js";
 import { describe } from "../importers/csv.js";
-import { checkAccount, cachedMe, sendCode, signIn, signOut, deleteAccount, pull, pushSource, removeRemote,
-         connectHevy, syncHevy, disconnect, healthSetupLink, runHealthNow, SHORTCUT_URL, HEVY_KEY_PAGE } from "../account.js";
+import { checkAccount, cachedMe, sendCode, signIn, pull, pushSource, connectHevy, syncHevy, disconnect,
+         healthSetupLink, androidSetup, runHealthNow, SHORTCUT_URL, HEVY_KEY_PAGE } from "../account.js";
 
 const $ = id => document.getElementById(id);
 const dateText = iso => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -23,7 +22,7 @@ let available = false;
 function say(id, html, kind = "") { const el = $("m-" + id); el.className = "msg " + kind; el.innerHTML = html; }
 const busy = (ids, on) => ids.forEach(id => { if ($(id)) $(id).disabled = on; });
 
-// ---- the account ----
+// ---- signing in ----
 $("a-send").onclick = async () => {
   busy(["a-send"], true); say("account", "Sending…");
   try {
@@ -36,29 +35,72 @@ $("a-send").onclick = async () => {
 $("a-email").addEventListener("keydown", e => { if (e.key === "Enter") $("a-send").click(); });
 $("a-verify").onclick = async () => {
   busy(["a-verify"], true); say("account", "Signing in…");
-  try {
-    await signIn($("a-email").value, $("a-code").value);
-    say("account", "");
-    refresh();
-  } catch (e) { say("account", esc(e.message), "bad"); }
+  try { await signIn($("a-email").value, $("a-code").value); say("account", ""); refresh(); }
+  catch (e) { say("account", esc(e.message), "bad"); }
   busy(["a-verify"], false);
 };
 $("a-code").addEventListener("input", () => { if (/^\d{6}$/.test($("a-code").value.trim())) $("a-verify").click(); });
-$("a-out").onclick = async () => {
-  if (!confirm("Sign out? Your data stays in your account; this device goes back to the demo.")) return;
-  await signOut();
-  refresh();
+
+// ---- the list: one integration open at a time, and #name opens one (from a link, or after coming back) ----
+const ints = [...document.querySelectorAll("details.int")];
+ints.forEach(d => d.addEventListener("toggle", () => { if (d.open) ints.forEach(o => { if (o !== d) o.open = false; }); }));
+function openFromHash() {
+  const d = $(location.hash.slice(1));
+  if (d && d.matches("details.int")) { d.open = true; d.scrollIntoView({ block: "start" }); }
+}
+addEventListener("hashchange", openFromHash);
+
+// ---- Apple Health: add the Shortcut, then Finish hands it its token and asks for Health access ----
+$("b-shortcut").href = SHORTCUT_URL || "shortcut.html";
+$("b-finish").onclick = async () => {
+  busy(["b-finish", "b-health-again"], true);
+  try {
+    const link = await healthSetupLink();
+    location.href = link;                                // opens Shortcuts, which runs Motus once and comes back here
+    // Safari may refuse to leave for another app this long after the tap; then the person taps the link themselves
+    setTimeout(() => { if (document.visibilityState === "visible")
+      say("live-health", `If Shortcuts didn't open, <a href="${esc(link)}">tap here to open it</a>. The Shortcut must be called exactly “Motus”.`); }, 1500);
+  } catch (e) { say("live-health", esc(e.message), "bad"); }
+  busy(["b-finish", "b-health-again"], false);
 };
-const needAccount = msgId => {
-  if (cachedMe()) return false;
-  say(msgId, available ? "Sign in first (at the top), then connect." : "This needs a Motus account, which this address doesn't offer.", "bad");
-  if (available) $("a-email").focus();
-  return true;
+// runs the Motus Shortcut now; Shortcuts comes back here with ?health=updated (or cancelled / failed)
+$("b-health-now").onclick = () => {
+  if (!onIPhone) { say("live-health", "Open Motus on your iPhone to update from Apple Health.", "bad"); return; }
+  say("live-health", "Opening Shortcuts…");
+  runHealthNow(location.origin + location.pathname);
+};
+$("b-health-again").onclick = () => {
+  if (!confirm("Set up the Shortcut again? The one on your iPhone stops working until you tap Finish there.")) return;
+  $("health-off").dataset.redo = "1"; $("health-on").hidden = true; $("health-off").hidden = false;
+};
+$("b-health-off").onclick = async () => {
+  if (!confirm("Disconnect Apple Health? Its numbers are removed from Motus. You can delete the Motus Shortcut on your iPhone too.")) return;
+  try { await disconnect("health"); say("live-health", "Disconnected.", "ok"); refresh(); } catch (e) { say("live-health", esc(e.message), "bad"); }
+};
+
+// ---- Health Connect (Android): a settings file for HC Webhook with Motus's address and this person's key ----
+async function androidFile() {
+  busy(["b-android", "b-android-again"], true);
+  try {
+    const { settings } = await androidSetup();
+    download("motus-hc-webhook.json", JSON.stringify(settings, null, 2), "application/json");
+    say("android", "Downloaded. Now import it in HC Webhook (step 3). Your numbers arrive within the hour.", "ok");
+    await checkAccount(); refresh();
+  } catch (e) { say("android", esc(e.message), "bad"); }
+  busy(["b-android", "b-android-again"], false);
+}
+$("b-android").onclick = androidFile;
+$("b-android-again").onclick = () => {
+  if (!confirm("Make a new setup file? The one in HC Webhook stops working until you import the new one.")) return;
+  androidFile();
+};
+$("b-android-off").onclick = async () => {
+  if (!confirm("Disconnect Health Connect? Its numbers are removed from Motus. You can remove Motus from HC Webhook too.")) return;
+  try { await disconnect("android"); say("android", "Disconnected.", "ok"); refresh(); } catch (e) { say("android", esc(e.message), "bad"); }
 };
 
 // ---- Hevy: one tap to its key page, one tap to paste ----
 $("b-hevy").onclick = () => {
-  if (needAccount("live-hevy")) return;
   window.open(HEVY_KEY_PAGE, "_blank", "noopener");
   $("hevy-paste").hidden = false;
   say("live-hevy", "");
@@ -92,172 +134,62 @@ $("b-hevy-off").onclick = async () => {
   try { await disconnect("hevy"); say("live-hevy", "Disconnected.", "ok"); refresh(); } catch (e) { say("live-hevy", esc(e.message), "bad"); }
 };
 
-// ---- Apple Health: add the Shortcut, then Finish hands it its token and asks for Health access ----
-$("b-shortcut").href = SHORTCUT_URL || "shortcut.html";
-$("b-shortcut").addEventListener("click", e => { if (needAccount("live-health")) e.preventDefault(); });
-async function finishHealth() {
-  if (needAccount("live-health")) return;
-  busy(["b-finish", "b-health-again"], true);
-  try {
-    const link = await healthSetupLink();
-    location.href = link;                                // opens Shortcuts, which runs Motus once and comes back here
-    // Safari may refuse to leave for another app this long after the tap; then the person taps the link themselves
-    setTimeout(() => { if (document.visibilityState === "visible")
-      say("live-health", `If Shortcuts didn't open, <a href="${esc(link)}">tap here to open it</a>. The Shortcut must be called exactly “Motus”.`); }, 1500);
-  } catch (e) { say("live-health", esc(e.message), "bad"); }
-  busy(["b-finish", "b-health-again"], false);
-}
-$("b-finish").onclick = finishHealth;
-// runs the Motus Shortcut now; Shortcuts comes back here with ?health=updated (or cancelled / failed)
-$("b-health-now").onclick = () => {
-  if (!onIPhone) { say("live-health", "Open Motus on your iPhone to update from Apple Health.", "bad"); return; }
-  say("live-health", "Opening Shortcuts…");
-  runHealthNow(location.origin + location.pathname);
-};
-$("b-health-again").onclick = () => {
-  if (!confirm("Set up the Shortcut again? The one on your iPhone stops working until you tap Finish there.")) return;
-  $("health-off").dataset.redo = "1"; $("health-on").hidden = true; $("health-off").hidden = false;
-};
-$("b-health-off").onclick = async () => {
-  if (!confirm("Disconnect Apple Health? Its numbers are removed from Motus. You can delete the Motus Shortcut on your iPhone too.")) return;
-  try { await disconnect("health"); say("live-health", "Disconnected.", "ok"); refresh(); } catch (e) { say("live-health", esc(e.message), "bad"); }
-};
-
-// ---- file imports ----
-async function run(id, src, controls, task) {
-  controls.forEach(c => { if (c) c.disabled = true; });
-  say(id, "Reading…");
-  try {
-    const result = await task(p => say(id, `Reading… ${Math.round(p * 100)}%`));
-    const saved = putSource(src, result);
-    const what = result.count != null ? `${result.count} workout${result.count === 1 ? "" : "s"} (${describe(result.days)})` : describe(result.days);
-    let note = saved ? "" : " <br>Your browser wouldn't let Motus save it, so it will be gone when you close this page.";
-    if (cachedMe()) { try { await pushSource(src); note += " Saved to your account."; } catch (e) { note += " <br>Couldn't save it to your account yet: " + esc(e.message); } }
-    say(id, `Imported ${what}. <a href="./">See your dashboard →</a>` +
-      (result.unitGuessed ? ` The file didn't say its unit, so weights were read as ${$("u-strong").value}.` : "") + note, saved ? "ok" : "bad");
-    refresh();
-  } catch (e) {
-    say(id, esc(e && e.message ? e.message : "Something went wrong reading that file."), "bad");
-  } finally {
-    controls.forEach(c => { if (c) c.disabled = false; });
-  }
-}
-function onFile(inputId, id, src, importer) {          // clear the input so the same file can be chosen again
+// ---- files: Strong, and Hevy without Pro ----
+function onFile(inputId, msgId, src, read) {           // the input is cleared so the same file can be chosen again
   const input = $(inputId);
-  input.addEventListener("change", () => {
-    const files = [...input.files];
+  input.addEventListener("change", async () => {
+    const f = input.files[0];
     input.value = "";
-    if (files.length) run(id, src, [input], p => importer(files, p));
+    if (!f) return;
+    input.disabled = true; say(msgId, "Reading…");
+    try {
+      const result = await read(f);
+      putSource(src, result);
+      await pushSource(src);
+      say(msgId, `Imported ${result.count} workout${result.count === 1 ? "" : "s"} (${describe(result.days)}). <a href="workouts.html">See your workouts →</a>` +
+        (result.unitGuessed ? ` The file didn't say its unit, so weights were read as ${$("u-strong").value}.` : ""), "ok");
+      refresh();
+    } catch (e) { say(msgId, esc(e && e.message ? e.message : "Something went wrong reading that file."), "bad"); }
+    input.disabled = false;
   });
 }
-onFile("f-apple", "apple", "apple", (files, p) => importAppleHealth(files[0], p));
-onFile("f-hevy", "hevy", "hevy", async files => fromHevyCSV(await files[0].text()));
-onFile("f-strong", "strong", "strong", async files => fromStrongCSV(await files[0].text(), $("u-strong").value));
-onFile("f-mfp", "mfp", "mfp", files => importMfp(files, $("u-mfp").value));
-onFile("f-csv", "csv", "csv", async files => fromSheetCSV(await files[0].text(), $("u-csv").value));
-$("t-csv").onclick = () => download("motus-template.csv", template(today), "text/csv");
-
-// ---- by hand ----
-const HAND = ["sleep_hours", "steps", "calories", "weight"];
-function handPlaceholders() {
-  const data = getData(), r = data.days[$("h-date").value] || {};
-  for (const k of HAND) {
-    const v = k === "weight" ? r.weight_kg : r[k];
-    $("h-" + k).placeholder = data.demo || v == null ? "" : k === "weight" ? toDisp(v).toFixed(1) : String(v);
-  }
-}
-$("h-date").max = today;
-$("h-date").value = today;
-$("h-date").addEventListener("change", handPlaceholders);
-$("b-manual").onclick = async () => {
-  const d = $("h-date").value;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d > today) return say("manual", "Choose a date up to today.", "bad");
-  const rec = {};
-  for (const k of HAND) {
-    const v = parseFloat($("h-" + k).value);
-    if (!Number.isFinite(v) || v <= 0) continue;
-    if (k === "weight") rec.weight_kg = Math.round(fromDisp(v) * 10) / 10;
-    else rec[k] = k === "sleep_hours" ? v : Math.round(v);
-  }
-  if (!Object.keys(rec).length) return say("manual", "Type at least one number.", "bad");
-  const saved = putSource("manual", { days: { [d]: rec } });
-  HAND.forEach(k => { $("h-" + k).value = ""; });
-  if (cachedMe()) await pushSource("manual").catch(() => {});
-  say("manual", saved ? `Saved ${esc(d)}. <a href="./">See your dashboard →</a>` : "Your browser wouldn't let Motus save it.", saved ? "ok" : "bad");
-  refresh();
-};
+onFile("f-strong", "strong", "strong", async f => fromStrongCSV(await f.text(), $("u-strong").value));
+onFile("f-hevy", "live-hevy", "hevy", async f => fromHevyCSV(await f.text()));
 
 // ---- what is shown ----
+const status = (id, text, on) => { $(id).textContent = text; $(id).classList.toggle("good", !!on); };
 function refresh() {
-  const me = cachedMe(), data = getData();
+  const me = cachedMe(), sources = getData().sources, has = id => sources.find(s => s.id === id);
+  refreshNav();
   $("acct-out").hidden = !available || !!me;
-  $("acct-in").hidden = !me;
   $("acct-none").hidden = available || !!me;
-  if (me) $("a-who").textContent = me.email;
+  $("integrations").hidden = !me;
+  if (!me) return;
 
-  const h = me && me.hevy && me.hevy.connected ? me.hevy : null;
-  $("hevy-off").hidden = !!h; $("hevy-on").hidden = !h;
-  $("p-hevy").textContent = h ? "Connected" : "";
-  if (h) $("s-hevy").innerHTML = h.error ? `<span class="warn">Hevy stopped syncing: ${esc(h.error)}</span>` : `Up to date by itself. Last sync ${ago(h.synced)}.`;
-
-  const hl = me && me.health && me.health.connected ? me.health : null;
+  const hl = me.health && me.health.connected ? me.health : null;
   if (!$("health-off").dataset.redo) { $("health-off").hidden = !!hl; $("health-on").hidden = !hl; }
-  $("p-health").textContent = hl ? "Connected" : "";
   if (hl) $("s-health").textContent = hl.last_upload ? `Your iPhone last sent numbers ${ago(hl.last_upload)}.` : "Waiting for the first upload from your iPhone.";
+  status("t-health", hl ? (hl.last_upload ? `Connected · ${ago(hl.last_upload)}` : "Connected · waiting for the iPhone") : "iPhone: steps, sleep, weight, food, energy", hl);
   $("h-elsewhere").hidden = onIPhone;
   $("h-steps").classList.toggle("dim", !onIPhone);
 
-  const on = new Set(data.sources.map(s => s.id));
-  document.querySelectorAll(".pill[data-src]").forEach(p => { p.textContent = on.has(p.dataset.src) ? "Imported" : ""; });
-  $("sources").innerHTML = data.sources.length ? data.sources.map(s =>
-    `<li><span><b>${esc(s.name)}</b><small>${s.count} day${s.count === 1 ? "" : "s"}${s.first ? `, ${dateText(s.first)} to ${dateText(s.last)}` : ""}${s.imported ? ` · updated ${dateText(s.imported)}` : ""}</small></span>` +
-    (SERVER_SOURCES.includes(s.id) ? "" : `<button class="more" type="button" data-remove="${s.id}">Remove</button>`) + "</li>").join("")
-    : '<li class="muted">Nothing connected or imported yet.</li>';
-  $("backup").disabled = data.demo;
-  $("wipe").textContent = me ? "Delete my account" : "Delete everything";
-  $("wipe").disabled = data.demo && !me;
-  $("h-unit").textContent = unit();
-  for (const s of ["u-strong", "u-mfp", "u-csv"]) if (!$(s).dataset.touched) $(s).value = prefs.units;
-  handPlaceholders();
-}
-for (const s of ["u-strong", "u-mfp", "u-csv"]) $(s).addEventListener("change", () => { $(s).dataset.touched = "1"; });
+  const an = me.android && me.android.connected ? me.android : null;
+  $("android-off").hidden = !!an && !!an.last_upload; $("android-on").hidden = !(an && an.last_upload);
+  if (an && an.last_upload) $("s-android").textContent = `Your Android phone last sent numbers ${ago(an.last_upload)}.`;
+  status("t-android", an ? (an.last_upload ? `Connected · ${ago(an.last_upload)}` : "Waiting for HC Webhook") : "Android: Samsung Health, Google Fit, Fitbit, HUAWEI…", an && an.last_upload);
 
-$("sources").addEventListener("click", async e => {
-  const b = e.target.closest("[data-remove]"); if (!b) return;
-  const name = b.closest("li").querySelector("b").textContent;
-  if (!confirm(`Remove everything imported from ${name}?`)) return;
-  removeSource(b.dataset.remove);
-  await removeRemote(b.dataset.remove).catch(() => {});
-  say("mine", `Removed ${esc(name)}.`, "ok");
-  refresh();
-});
-$("backup").onclick = () => download(`motus-backup-${today}.json`, backup(), "application/json");
-$("restore").addEventListener("change", async () => {
-  const f = $("restore").files[0];
-  $("restore").value = "";
-  if (!f) return;
-  try {
-    const obj = JSON.parse(await f.text());
-    if (!getData().demo && !confirm("Replace the data on this device with this backup?")) return;
-    const n = restore(obj);
-    if (cachedMe()) for (const id of Object.keys(load().sources)) await pushSource(id).catch(() => {});
-    say("mine", `Restored ${n} source${n === 1 ? "" : "s"}. <a href="./">See your dashboard →</a>`, "ok");
-  } catch (e) {
-    say("mine", esc(e instanceof SyntaxError ? "That file isn't a Motus backup." : e.message), "bad");
-  }
-  refresh();
-});
-$("wipe").onclick = async () => {
-  if (cachedMe()) {
-    if (!confirm("Delete your Motus account and everything in it? Hevy and Apple Health are disconnected too. This can't be undone.")) return;
-    try { await deleteAccount(); say("mine", "Your account is deleted. You're back to the demo.", "ok"); } catch (e) { say("mine", esc(e.message), "bad"); }
-  } else {
-    if (!confirm("Delete all your Motus data from this device? This can't be undone unless you have a backup.")) return;
-    clearAll();
-    say("mine", "Deleted. You're back to the demo.", "ok");
-  }
-  refresh();
-};
+  const h = me.hevy && me.hevy.connected ? me.hevy : null;
+  $("hevy-off").hidden = !!h; $("hevy-on").hidden = !h;
+  if (h) $("s-hevy").innerHTML = h.error ? `<span class="warn">Hevy stopped syncing: ${esc(h.error)}</span>` : `Up to date by itself. Last sync ${ago(h.synced)}.`;
+  const hevyFile = has("hevy");
+  status("t-hevy", h ? (h.error ? "Stopped syncing" : "Connected") : hevyFile ? `Imported ${dateText(hevyFile.imported)}` : "Workouts, ratings and estimated 1RM", h && !h.error || (!h && hevyFile));
+
+  const st = has("strong");
+  status("t-strong", st ? `Imported ${dateText(st.imported)}` : "Workouts, as a file", st);
+  status("t-mfp", hl || an ? `Through ${hl ? "Apple Health" : "Health Connect"}` : "Food, through Apple Health or Health Connect", hl || an);
+  if (!$("u-strong").dataset.touched) $("u-strong").value = prefs.units;
+}
+$("u-strong").addEventListener("change", () => { $("u-strong").dataset.touched = "1"; });
 
 initNav("connect", refresh);
 refresh();
@@ -265,12 +197,13 @@ checkAccount().then(async r => {
   available = r.available;
   if (r.me) await pull().catch(() => {});
   const back = new URLSearchParams(location.search).get("health");
-  if (back) history.replaceState(null, "", location.pathname + "#live-health");
+  if (back) history.replaceState(null, "", location.pathname + "#health");
+  refresh();
   if (back === "done") {
     say("live-health", "Apple Health is connected. From now on Motus updates it by itself whenever you open Motus on this iPhone.", "ok");
     $("health-off").dataset.redo = "1"; $("health-off").hidden = false; $("health-on").hidden = true;
   }
   if (back === "updated") say("live-health", "Updated from Apple Health.", "ok");
   if (back === "failed") say("live-health", "The Shortcut couldn't send this time (no connection, perhaps). Tap Update now to try again.", "bad");
-  refresh();
+  openFromHash();
 });

@@ -1,6 +1,6 @@
 // Workouts: last workout rating, overall rating, workouts per week, exercises by estimated 1RM, ratings per workout.
 import { prefs, today, add, weekStart, workoutsBetween, label, esc, unit, toDisp, initNav } from "../core.js";
-import { getData } from "../store.js";
+import { getData, hasWorkouts } from "../store.js";
 import { exerciseStats, overallRating, workoutScore, mean } from "../stats.js";
 import { autoRefresh } from "../account.js";
 
@@ -90,12 +90,13 @@ function render() {
   renderLast(); renderScore(stats); renderWeeks(); renderExercises(stats); renderRatings();
 }
 
+// Only for someone whose workouts come from a tracker (Hevy or Strong); everyone else is asked to connect one.
 function show() {
   ({ days, exercises } = data = getData());
-  render();
-  const el = document.getElementById("banner");
-  el.innerHTML = 'Demo workouts. <a href="connect.html">Connect Hevy or Strong</a> to rate your own.';
-  el.hidden = !data.demo;
+  const on = hasWorkouts();
+  document.getElementById("none").hidden = on;
+  document.getElementById("content").hidden = !on;
+  if (on) render();
 }
 
 initNav("workouts", render);

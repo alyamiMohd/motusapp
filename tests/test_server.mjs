@@ -165,9 +165,104 @@ check("the background sync picks it up again and finishes", env.DB.sql("SELECT e
 await call("DELETE", "/api/hevy", { cookie: sara });
 check("disconnecting Hevy removes the key and the workouts", env.DB.sql("SELECT * FROM hevy").length === 0 && (await call("GET", "/api/data", { cookie: sara })).json.workouts.length === 0);
 
+section("profile");
+r = await call("GET", "/api/profile", { cookie: sara });
+check("a new account has an empty profile", r.status === 200 && r.json.name === null && r.json.username === null && r.json.avatar === null);
+r = await call("PUT", "/api/profile", { cookie: sara, body: { name: "  Sara   R ", username: "@Sara.R" } });
+check("name and username saved: spaces tidied, @ dropped, lower case", r.status === 200 && r.json.name === "Sara R" && r.json.username === "sara.r", r.text);
+const badNames = ["ab", "_sara", "sara_", "sa..ra", "sa ra", "سارة", "x".repeat(21)];
+const bad = await Promise.all(badNames.map(u => call("PUT", "/api/profile", { cookie: sara, body: { username: u } })));
+check("usernames that aren't 3-20 letters, numbers, dots or underscores are refused", bad.every(x => x.status === 400), bad.map(x => x.status).join());
+check("reserved and taken usernames: 409, the case doesn't matter", (await call("PUT", "/api/profile", { cookie: tom, body: { username: "admin" } })).status === 409 &&
+  (await call("PUT", "/api/profile", { cookie: tom, body: { username: "SARA.R" } })).status === 409);
+check("a name over 60 characters is refused", (await call("PUT", "/api/profile", { cookie: sara, body: { name: "n".repeat(61) } })).status === 400);
+const PHOTO = "data:image/jpeg;base64," + Buffer.alloc(3000, 1).toString("base64");
+r = await call("PUT", "/api/profile", { cookie: sara, body: { avatar: PHOTO } });
+check("a photo is saved, and fields left out stay as they were", r.status === 200 && r.json.avatar === PHOTO && r.json.username === "sara.r" && r.json.name === "Sara R");
+check("a photo that isn't an image, or is too big, is refused",
+  (await call("PUT", "/api/profile", { cookie: sara, body: { avatar: "data:text/html;base64,PHNjcmlwdD4=" } })).status === 400 &&
+  (await call("PUT", "/api/profile", { cookie: sara, body: { avatar: "javascript:alert(1)" } })).status === 400 &&
+  (await call("PUT", "/api/profile", { cookie: sara, body: { avatar: "data:image/png;base64," + "A".repeat(80_000) } })).status === 400);
+r = await call("GET", "/api/me", { cookie: sara });
+check("/api/me carries the name, username and whether there's a photo (not the photo)", r.json.profile.name === "Sara R" &&
+  r.json.profile.username === "sara.r" && r.json.profile.photo === true && !r.text.includes("base64"));
+r = await call("GET", "/api/u/Sara.R", { origin: null });
+check("anyone can look up a username: name, username and photo only", r.status === 200 &&
+  JSON.stringify(Object.keys(r.json).sort()) === '["avatar","name","username"]' && r.json.avatar === PHOTO && !r.text.includes("sara@example.com"));
+check("an unknown or malformed username: 404", (await call("GET", "/api/u/nobody.here", { origin: null })).status === 404 &&
+  (await call("GET", "/api/u/%3Cscript%3E", { origin: null })).status === 404);
+check("a profile can't be changed from another site", (await call("PUT", "/api/profile", { cookie: sara, origin: "https://evil.test", body: { name: "x" } })).status === 403 &&
+  (await call("PUT", "/api/profile", { body: { name: "x" } })).status === 401);
+r = await call("PUT", "/api/profile", { cookie: sara, body: { username: "", avatar: null } });
+check("clearing the username takes the public page down; the name stays", r.json.username === null && r.json.avatar === null && r.json.name === "Sara R" &&
+  (await call("GET", "/api/u/sara.r", { origin: null })).status === 404);
+check("…and frees the username for someone else", (await call("PUT", "/api/profile", { cookie: tom, body: { username: "sara.r" } })).status === 200 &&
+  (await call("PUT", "/api/profile", { cookie: sara, body: { username: "sara" } })).status === 200);
+env.ASSETS = { fetch: req => new Response(new URL(req.url).pathname) };
+r = await call("GET", "/u/sara", { origin: null });
+check("/u/<username> serves the public profile page", r.status === 200 && r.text === "/user");
+delete env.ASSETS;
+
+section("Android through Health Connect");
+r = await call("POST", "/api/android", { cookie: sara });
+const hcToken = r.json.token, set = r.json.settings, hook = set.webhookConfigs[0];
+check("a Health Connect token and where to send", /^mc_[\w-]{43}$/.test(hcToken) && r.json.url === ORIGIN + "/api/upload/hc");
+check("HC Webhook's settings file: Motus's address, the token as a header, hourly, daily totals",
+  hook.url === r.json.url && hook.headers.Authorization === "Bearer " + hcToken && hook.isEnabled && hook.deliveryFormat === "JSON" &&
+  set.enabledDataTypes.join() === "STEPS,ACTIVE_CALORIES,NUTRITION,WEIGHT,SLEEP" && set.syncMode === "INTERVAL" && set.syncIntervalMinutes === 60 &&
+  set.dataTypeResolutions.STEPS === -1 && set.dataTypeResolutions.ACTIVE_CALORIES === -1 && set.dataTypeResolutions.NUTRITION === -1 && !set.localTcpEnabled);
+check("only a hash of the token is stored", env.DB.sql("SELECT token_hash FROM upload_tokens").every(t => t.token_hash.startsWith("hc:") && !t.token_hash.includes(hcToken)));
+const hc = (body, t = hcToken) => call("POST", "/api/upload/hc", { origin: null, body, headers: t ? { authorization: "Bearer " + t } : {} });
+// a phone in Riyadh (UTC+3); HC Webhook sends instants in UTC. Its first sync: the last 48 hours, to 28 Oct 14:00.
+const Z = "Asia/Riyadh";
+r = await hc({ timezone: Z, timestamp: "2026-10-28T11:00:00Z",
+  steps: [{ count: 3000, start_time: "2026-10-26T11:00:00Z", end_time: "2026-10-26T21:00:00Z" },      // 26 Oct from 14:00 only
+          { count: 9100, start_time: "2026-10-26T21:00:00Z", end_time: "2026-10-27T21:00:00Z" },      // all of 27 Oct
+          { count: 4491, start_time: "2026-10-27T21:00:00Z", end_time: "2026-10-28T11:00:00Z" }],     // 28 Oct so far
+  active_calories: [{ calories: 411.4, start_time: "2026-10-27T21:00:00Z", end_time: "2026-10-28T11:00:00Z" }],
+  nutrition: [{ calories: 1850, start_time: "2026-10-27T21:00:00Z", end_time: "2026-10-28T11:00:00Z" }],
+  weight: [{ kilograms: 80.4, time: "2026-10-28T03:10:00Z" }, { kilograms: 80.12, time: "2026-10-28T04:30:00Z" }],
+  sleep: [{ session_end_time: "2026-10-28T03:30:00Z", duration_seconds: 25200, stages: [
+    { stage: "4", start_time: "2026-10-27T20:30:00Z", end_time: "2026-10-28T00:00:00Z" },               // light 3.5 h
+    { stage: "1", start_time: "2026-10-28T00:00:00Z", end_time: "2026-10-28T00:15:00Z" },               // awake
+    { stage: "5", start_time: "2026-10-28T00:15:00Z", end_time: "2026-10-28T02:00:00Z" },               // deep 1.75 h
+    { stage: "6", start_time: "2026-10-28T02:00:00Z", end_time: "2026-10-28T03:30:00Z" }] }] });        // REM 1.5 h
+let hcDays = (await call("GET", "/api/data", { cookie: sara })).json.sources.hc;
+hcDays = hcDays && hcDays.data.days;
+check("HC Webhook's upload is accepted (no cookie, no Origin needed)", r.status === 200 && r.json.days === 2, r.text);
+check("days in the phone's own time zone: steps, active energy, food, the last weight", hcDays["2026-10-27"].steps === 9100 &&
+  hcDays["2026-10-28"].steps === 4491 && hcDays["2026-10-28"].active_kcal === 411 && hcDays["2026-10-28"].calories === 1850 && hcDays["2026-10-28"].weight_kg === 80.1,
+  JSON.stringify(hcDays));
+check("sleep: the asleep stages, on the morning you wake up (6.75 h)", hcDays["2026-10-28"].sleep_hours === 6.75 && !hcDays["2026-10-27"].sleep_hours);
+check("the part-day at the start of the 48 hours isn't taken for a whole day", !hcDays["2026-10-26"]);
+// the next day's sync: 27 Oct is now the part-day, and a nap is the only new sleep
+await hc({ timezone: Z, steps: [{ count: 2000, start_time: "2026-10-27T11:00:00Z", end_time: "2026-10-27T21:00:00Z" },
+                               { count: 8200, start_time: "2026-10-27T21:00:00Z", end_time: "2026-10-28T21:00:00Z" }],
+           sleep: [{ session_end_time: "2026-10-28T11:00:00Z", duration_seconds: 3600, stages: [] }] });
+hcDays = (await call("GET", "/api/data", { cookie: sara })).json.sources.hc.data.days;
+check("a later sync: the finished day is updated, the earlier full day is kept, a nap doesn't replace the night",
+  hcDays["2026-10-28"].steps === 8200 && hcDays["2026-10-27"].steps === 9100 && hcDays["2026-10-28"].sleep_hours === 6.75 && hcDays["2026-10-28"].calories === 1850,
+  JSON.stringify(hcDays));
+r = await call("GET", "/api/me", { cookie: sara });
+check("/api/me shows when the phone last sent, apart from Apple Health", r.json.android.connected && r.json.android.last_upload > 0 && !r.json.health.connected);
+check("no token, a wrong one, or a Shortcut token: refused", (await hc({ steps: [] }, null)).status === 401 &&
+  (await hc({ steps: [] }, "mc_" + "A".repeat(43))).status === 401 && (await hc({ steps: [] }, shortcutToken)).status === 401 &&
+  (await up({ days: {} }, hcToken)).status === 401);
+check("not JSON: refused; nothing new (empty lists): fine", (await hc("{not json")).status === 400 && (await hc({ steps: [], sleep: [] })).json.days === 0);
+const apple2 = (await call("POST", "/api/health", { cookie: sara })).json.token;
+await call("DELETE", "/api/health", { cookie: sara });
+check("setting up or disconnecting Apple Health leaves Android alone", !!apple2 && (await hc({ steps: [] })).status === 200 &&
+  !!(await call("GET", "/api/data", { cookie: sara })).json.sources.hc);
+const hc2 = (await call("POST", "/api/android", { cookie: sara })).json.token;
+check("setting up Android again replaces the old token", (await hc({ steps: [] })).status === 401 && (await hc({ steps: [] }, hc2)).status === 200);
+await call("DELETE", "/api/android", { cookie: sara });
+r = await call("GET", "/api/data", { cookie: sara });
+check("disconnecting removes the token and that data", !r.json.sources.hc && (await hc({ steps: [] }, hc2)).status === 401 && !r.json.me.android.connected);
+
 section("signing out and deleting");
 await call("POST", "/api/hevy", { cookie: tom, body: { key: "good-key-123456" } });
 await call("POST", "/api/health", { cookie: tom });
+await call("POST", "/api/android", { cookie: tom });
 r = await call("POST", "/api/auth/logout", { cookie: tom });
 check("signing out ends the session", /Max-Age=0/.test(r.headers.get("set-cookie")) && (await call("GET", "/api/me", { cookie: tom })).status === 401);
 const tom2 = await signIn("tom@example.com");
@@ -175,7 +270,10 @@ r = await call("DELETE", "/api/me", { cookie: tom2 });
 const left = ["users", "sessions", "upload_tokens", "sources", "hevy", "workouts"].map(t => env.DB.sql(`SELECT COUNT(*) n FROM ${t} WHERE ${t === "users" ? "email" : "user_id"} = ?`, t === "users" ? "tom@example.com" : "x")[0].n);
 check("deleting the account removes it and signs out", r.status === 200 && left[0] === 0 && env.DB.sql("SELECT COUNT(*) n FROM hevy")[0].n === 0 &&
   env.DB.sql("SELECT COUNT(*) n FROM upload_tokens")[0].n === 0 && (await call("GET", "/api/me", { cookie: tom2 })).status === 401);
-check("…and nobody else's data", (await call("GET", "/api/data", { cookie: sara })).json.sources.apple !== undefined);
+check("…their profile too, which frees the username", env.DB.sql("SELECT COUNT(*) n FROM profiles WHERE username = 'sara.r'")[0].n === 0 &&
+  (await call("GET", "/api/u/sara.r", { origin: null })).status === 404);
+check("…and nobody else's data", (await call("GET", "/api/data", { cookie: sara })).json.sources.apple !== undefined &&
+  (await call("GET", "/api/u/sara", { origin: null })).status === 200);
 
 section("other paths");
 check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })).status === 404);

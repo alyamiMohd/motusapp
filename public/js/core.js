@@ -68,16 +68,42 @@ export function download(name, text, type = "text/plain") {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+// What the navbar needs from this device's copy, read directly so this module doesn't depend on store.js and
+// account.js (which depend on it): who is signed in and their photo (account.js), and whether a workout tracker
+// (Hevy or Strong) brought workouts (store.js, WORKOUT_SOURCES): the Workouts link only shows then.
+const stored = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+function navState() {
+  let me = null, sources = {};
+  try { me = JSON.parse(stored("motusapp-me") || "null"); } catch (e) {}
+  try { sources = (JSON.parse(stored("motusapp-data-v1") || "{}") || {}).sources || {}; } catch (e) {}
+  return { me, photo: stored("motusapp-photo"), workouts: ["hevy_live", "hevy", "strong"].some(k => sources[k]) };
+}
+const PERSON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="4"/><path d="M4 21c.8-4.3 4-6.5 8-6.5s7.2 2.2 8 6.5"/></svg>';
+function face({ me, photo }) {
+  const name = me && ((me.profile && me.profile.name) || me.email) || "";
+  return photo && /^data:image\//.test(photo) ? `<img src="${esc(photo)}" alt="">`
+    : me ? `<span>${esc(name.trim().charAt(0).toUpperCase() || "M")}</span>` : PERSON;
+}
+
+// After signing in or out, a new photo or name, or a workout tracker connected: the navbar catches up.
+export function refreshNav() {
+  const s = navState(), el = document.querySelector("nav .me"), w = document.querySelector('nav a[href="workouts.html"]');
+  if (el) { el.innerHTML = face(s); el.setAttribute("aria-label", s.me ? "Your profile" : "Sign in"); }
+  if (w && !w.classList.contains("on")) w.hidden = !s.workouts;
+}
+
 // ---- navbar + Standards panel. onChange runs whenever a goal or setting changes. ----
 export function initNav(active, onChange) {
   const link = (href, key, text) => `<a href="${href}" class="${active === key ? "on" : ""}"${active === key ? ' aria-current="page"' : ""}>${text}</a>`;
+  const s = navState();
   document.body.insertAdjacentHTML("afterbegin", `
 <nav>
   <div class="bar">
     <a href="./" class="brand"><b>Motus</b></a>
+    <a href="profile.html" class="me${active === "profile" ? " on" : ""}" aria-label="${s.me ? "Your profile" : "Sign in"}"${active === "profile" ? ' aria-current="page"' : ""}>${face(s)}</a>
     <span class="links">
       ${link("./", "home", "Home")}
-      ${link("workouts.html", "workouts", "Workouts")}
+      ${link("workouts.html", "workouts", "Workouts").replace("<a ", s.workouts || active === "workouts" ? "<a " : "<a hidden ")}
       ${link("weeks.html", "weeks", "Weeks")}
       ${link("connect.html", "connect", "Connect")}
       <button id="toggle" aria-expanded="false" aria-controls="standards">Standards</button>

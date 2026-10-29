@@ -7,13 +7,20 @@
 //   POST /api/hevy {key} | DELETE       connect / disconnect Hevy    POST /api/hevy/sync                   next sync step
 //   POST /api/health | DELETE           new Shortcut token / disconnect Apple Health
 //   POST /api/upload                    the Motus Shortcut's daily upload (Authorization: Bearer <Shortcut token>)
+//   POST /api/android | DELETE          new HC Webhook token + its settings file / disconnect Health Connect
+//   POST /api/upload/hc                 HC Webhook's upload from an Android phone (Authorization: Bearer <its token>)
+//   GET|PUT /api/profile                name, username, photo        GET /api/u/:username                  public: those three
+//   GET /u/:username                    the public profile page
 //
 // Every 30 minutes (cron) Hevy accounts are synced a few at a time and old sign-in codes are cleared.
 import { start, verify, logout, sessionUser } from "./auth.js";
 import * as hevy from "./hevy.js";
+import * as profile from "./profile.js";
 import { mergeSource } from "../public/js/merge.js";
-import { readHealthUpload, HIJRI_EXACT } from "../public/js/health.js";
+import { readHealthUpload, fromHealthConnect, HIJRI_EXACT } from "../public/js/health.js";
 import { sha256, token, allow, json, fail } from "./util.js";
+
+const HC = "hc:";                    // prefix of an Android (HC Webhook) token's stored hash in upload_tokens
 
 const DEVICE_SOURCES = ["manual", "apple", "mfp", "csv", "hevy", "strong"];
 const MAX_BODY = 3_000_000;
@@ -21,6 +28,8 @@ const MAX_BODY = 3_000_000;
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
+    // someone's public profile: the same page for every username, which then asks /api/u/<username>
+    if (/^\/u\/[A-Za-z0-9._]{1,40}\/?$/.test(url.pathname) && env.ASSETS) return env.ASSETS.fetch(new Request(new URL("/user", url), req));
     if (!url.pathname.startsWith("/api/")) return env.ASSETS ? env.ASSETS.fetch(req) : fail(404, "Not found");
     try {
       return await api(req, env, url);
@@ -37,6 +46,12 @@ export default {
 async function api(req, env, url) {
   const ip = req.headers.get("cf-connecting-ip") || "local", path = url.pathname, method = req.method;
   if (method === "POST" && path === "/api/upload") return upload(req, env);
+  if (method === "POST" && path === "/api/upload/hc") return uploadHealthConnect(req, env);
+  let u;
+  if (method === "GET" && (u = /^\/api\/u\/([^/]+)$/.exec(path))) {
+    if (!(await allow(env.DB, "u:" + ip, 300, 3600))) return fail(429, "Too many lookups. Wait a little.");
+    return profile.byUsername(env, decodeURIComponent(u[1]));
+  }
 
   // Everything else runs on the session cookie, so changes must come from Motus's own pages.
   if (method !== "GET" && method !== "HEAD" && req.headers.get("origin") !== url.origin) return fail(403, "Not allowed from another site.");
@@ -80,18 +95,44 @@ async function api(req, env, url) {
   if (path === "/api/health" && method === "POST") {
     const t = token("mh_");
     await env.DB.batch([
-      env.DB.prepare("DELETE FROM upload_tokens WHERE user_id = ?").bind(user.id),     // one Shortcut per person; a new one replaces the old
+      // one Shortcut per person; a new one replaces the old (an Android token, "hc:…", stays)
+      env.DB.prepare("DELETE FROM upload_tokens WHERE user_id = ? AND token_hash NOT LIKE 'hc:%'").bind(user.id),
       env.DB.prepare("INSERT INTO upload_tokens (token_hash, user_id, created) VALUES (?, ?, ?)").bind(await sha256(t), user.id, Date.now()),
     ]);
     return json({ token: t, url: url.origin + "/api/upload" });
   }
   if (path === "/api/health" && method === "DELETE") {
     await env.DB.batch([
-      env.DB.prepare("DELETE FROM upload_tokens WHERE user_id = ?").bind(user.id),
+      env.DB.prepare("DELETE FROM upload_tokens WHERE user_id = ? AND token_hash NOT LIKE 'hc:%'").bind(user.id),
       env.DB.prepare("DELETE FROM sources WHERE user_id = ? AND source = 'health'").bind(user.id),
     ]);
     await touch(env, user.id);
     return json({ ok: true });
+  }
+  // Android: a token for HC Webhook, handed over inside a settings file the app imports (see androidSettings)
+  if (path === "/api/android" && method === "POST") {
+    const t = token("mc_");
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM upload_tokens WHERE user_id = ? AND token_hash LIKE 'hc:%'").bind(user.id),
+      env.DB.prepare("INSERT INTO upload_tokens (token_hash, user_id, created) VALUES (?, ?, ?)").bind(HC + await sha256(t), user.id, Date.now()),
+    ]);
+    const hook = url.origin + "/api/upload/hc";
+    return json({ url: hook, token: t, settings: androidSettings(hook, t) });
+  }
+  if (path === "/api/android" && method === "DELETE") {
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM upload_tokens WHERE user_id = ? AND token_hash LIKE 'hc:%'").bind(user.id),
+      env.DB.prepare("DELETE FROM sources WHERE user_id = ? AND source = 'hc'").bind(user.id),
+    ]);
+    await touch(env, user.id);
+    return json({ ok: true });
+  }
+  if (path === "/api/profile" && method === "GET") return json(await profile.get(env, user.id));
+  if (path === "/api/profile" && method === "PUT") {
+    if (!(await allow(env.DB, "profile:" + user.id, 60, 3600))) return fail(429, "Too many changes. Wait a little.");
+    const r = await profile.put(env, user.id, await body(req));
+    if (r.ok) await touch(env, user.id);
+    return r;
   }
   return fail(404, "Not found");
 }
@@ -107,11 +148,34 @@ const touch = (env, userId) => env.DB.prepare("UPDATE users SET changed = MAX(ch
 
 async function me(env, user) {
   const h = await env.DB.prepare("SELECT synced, error, next_page FROM hevy WHERE user_id = ?").bind(user.id).first();
-  const t = await env.DB.prepare("SELECT created, used FROM upload_tokens WHERE user_id = ?").bind(user.id).first();
+  const tokens = (await env.DB.prepare("SELECT token_hash, used FROM upload_tokens WHERE user_id = ?").bind(user.id).all()).results;
+  const t = tokens.find(r => !r.token_hash.startsWith(HC)), a = tokens.find(r => r.token_hash.startsWith(HC));
+  const p = await env.DB.prepare("SELECT name, username, avatar IS NOT NULL AS photo FROM profiles WHERE user_id = ?").bind(user.id).first();
   return {
     email: user.email,
+    profile: { name: p ? p.name : null, username: p ? p.username : null, photo: !!(p && p.photo) },
     hevy: h ? { connected: true, synced: h.synced, error: h.error, syncing: h.next_page != null } : { connected: false },
     health: t ? { connected: true, last_upload: t.used } : { connected: false },
+    android: a ? { connected: true, last_upload: a.used } : { connected: false },
+  };
+}
+
+// HC Webhook's own settings-backup format (SettingsExport in github.com/mcnaveen/health-connect-webhook): the app
+// imports it in one go. Steps, active energy and food come as Health Connect's daily totals ("count overlapping apps
+// once", in Health Connect's own source priority, as the Health app on an iPhone does), weight and sleep as records,
+// every hour, with this person's token as a header.
+function androidSettings(hook, t) {
+  return {
+    appVersion: 1,
+    exportedAt: Date.now(),
+    webhookConfigs: [{ url: hook, name: "Motus", headers: { Authorization: "Bearer " + t }, isEnabled: true, deliveryFormat: "JSON" }],
+    enabledDataTypes: ["STEPS", "ACTIVE_CALORIES", "NUTRITION", "WEIGHT", "SLEEP"],
+    syncMode: "INTERVAL",
+    syncIntervalMinutes: 60,
+    scheduledSyncs: [],
+    localTcpEnabled: false,
+    dataTypeResolutions: { STEPS: -1, ACTIVE_CALORIES: -1, NUTRITION: -1, SLEEP: 0 },
+    bucketDedup: true,
   };
 }
 
@@ -147,6 +211,30 @@ async function putDeviceSource(req, env, user, source) {
 }
 
 // The Motus Shortcut's upload. Its token is its only identity: no cookie, no account details.
+// HC Webhook's upload from an Android phone: Health Connect's records as JSON (see fromHealthConnect). Its token is
+// its only identity, like the Shortcut's.
+async function uploadHealthConnect(req, env) {
+  const m = /^Bearer\s+(mc_[A-Za-z0-9_-]{40,})$/.exec(req.headers.get("authorization") || "");
+  if (!m) return fail(401, "Missing or malformed token. Set up Health Connect again in Motus → Connect.");
+  const hash = HC + await sha256(m[1]);
+  const row = await env.DB.prepare("SELECT user_id FROM upload_tokens WHERE token_hash = ?").bind(hash).first();
+  if (!row) return fail(401, "This phone isn't connected any more. Set up Health Connect again in Motus → Connect.");
+  if (!(await allow(env.DB, "upload:" + hash, 200, 3600))) return fail(429, "Too many uploads. Try again later.");
+  let payload, days;
+  try { payload = await body(req); days = fromHealthConnect(payload); } catch (e) { return fail(400, e.message); }
+  // counts only, never values
+  console.log("hc upload:", JSON.stringify(Object.fromEntries(["steps", "active_calories", "nutrition", "weight", "sleep"]
+    .map(k => [k, Array.isArray(payload[k]) ? payload[k].length : 0]))), "days:", Object.keys(days).length);
+  // HC Webhook sends only the sleep sessions that are new since its last sync, so a nap mustn't replace the night:
+  // a day keeps the longer of what Motus has and what came
+  const had = await env.DB.prepare("SELECT data FROM sources WHERE user_id = ? AND source = 'hc'").bind(row.user_id).first();
+  const old = had ? JSON.parse(had.data).days || {} : {};
+  for (const [d, r] of Object.entries(days)) if (r.sleep_hours != null && old[d] && old[d].sleep_hours > r.sleep_hours) r.sleep_hours = old[d].sleep_hours;
+  if (Object.keys(days).length) await mergeInto(env, row.user_id, "hc", { days });
+  await env.DB.prepare("UPDATE upload_tokens SET used = ? WHERE token_hash = ?").bind(Date.now(), hash).run();
+  return json({ ok: true, days: Object.keys(days).length });
+}
+
 async function upload(req, env) {
   const m = /^Bearer\s+(mh_[A-Za-z0-9_-]{40,})$/.exec(req.headers.get("authorization") || "");
   if (!m) return fail(401, "Missing or malformed token. Set up Apple Health again in Motus → Connect.");
@@ -204,7 +292,7 @@ async function upload(req, env) {
 
 async function deleteAccount(req, env, user) {
   const db = env.DB;
-  await db.batch(["sessions", "upload_tokens", "sources", "hevy", "workouts"].map(t => db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(user.id))
+  await db.batch(["sessions", "upload_tokens", "sources", "hevy", "workouts", "profiles"].map(t => db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(user.id))
     .concat([db.prepare("DELETE FROM login_codes WHERE email = ?").bind(user.email), db.prepare("DELETE FROM users WHERE id = ?").bind(user.id)]));
   return json({ ok: true }, 200, { "set-cookie": `motus=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${new URL(req.url).protocol === "https:" ? "; Secure" : ""}` });
 }

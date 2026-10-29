@@ -12,6 +12,7 @@ const KEY = "motusapp-data-v1";
 export const SOURCES = {
   manual: "Entered by hand",
   health: "Apple Health (connected)",
+  hc: "Health Connect (connected)",
   apple: "Apple Health (file)",
   mfp: "MyFitnessPal",
   csv: "Spreadsheet",
@@ -20,7 +21,10 @@ export const SOURCES = {
   strong: "Strong",
 };
 // sources the account server fills by itself; everything else is imported on a device
-export const SERVER_SOURCES = ["health", "hevy_live"];
+export const SERVER_SOURCES = ["health", "hc", "hevy_live"];
+// the sources that bring workouts: the Workouts page and its link only show with one of them
+export const WORKOUT_SOURCES = ["hevy_live", "hevy", "strong"];
+export const hasWorkouts = () => WORKOUT_SOURCES.some(id => load().sources[id]);
 
 let memory = null;   // used when storage is blocked (some private modes): the data lasts for this visit only
 export function load() {
