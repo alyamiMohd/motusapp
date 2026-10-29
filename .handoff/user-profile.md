@@ -41,6 +41,8 @@ Carried over from the `motus` handoff (sessions of 2026-10-21 to 2026-10-24) and
 - 2026-10-28 "brevo sucks, they don't even share the sms to my phone through mfa": services that need phone verification or long sign-ups are out.
 - 2026-10-28 "Something's off, the steps are doubled": checks the numbers against Apple Health; spots wrong totals quickly.
 - 2026-10-28 "if it already exists don't make it no more": don't build a duplicate of something that already does the job; explain how the existing thing covers it.
+- 2026-10-29 "open the website in claude in phone size ... iphone 15 pro": check UI in the Browser pane at 393×852.
+- 2026-10-29 "Remove most of the non sense, make it mostly depend on the integrations": fewer options, one clear way per app; people shouldn't see screens whose purpose isn't obvious ("people see multiple circles not knowing the intent of it").
 - Rejected a small cosmetic refactor mid-task (2026-10-28) (inferred: don't touch working code that isn't part of the request).
 
 ## Environment

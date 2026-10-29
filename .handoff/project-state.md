@@ -34,10 +34,14 @@ Sign-in codes: the owner's Gmail via an Apps Script web app (GMAIL_SCRIPT_URL + 
 | POST/DELETE /api/hevy · POST /api/hevy/sync | connect (validate + first step) / disconnect · next sync step |
 | POST/DELETE /api/health | new Shortcut token (replaces the old) + upload URL / disconnect |
 | POST /api/upload | the Shortcut's upload: `{v: "2", steps, calories, active, weight, sleep}` (v2 raw samples with source) or v1 daily lines, or Health Exporter JSON/`health_b64`, or `{days}` |
-All cookie-authenticated non-GET requests require `Origin` = the app's origin.
+| POST/DELETE /api/android | (2026-10-29) new HC Webhook token `mc_…` (stored `hc:`+sha256, replaces the old Android token only) + `{url, token, settings}` (HC Webhook's SettingsExport JSON) / disconnect (token + source `hc`) |
+| POST /api/upload/hc | HC Webhook's JSON (`steps`, `active_calories`, `nutrition`, `weight`, `sleep`, `timezone`), Bearer `mc_…`, no cookie; `fromHealthConnect` in health.js; source `hc` |
+| GET/PUT /api/profile | name, username, avatar (PUT: fields left out stay; "" or null clears; 400 bad, 409 taken/reserved; 60/h) |
+| GET /api/u/:username · GET /u/:username | public: name, username, avatar only · the page `public/user.html` (absolute paths, no nav) |
+All cookie-authenticated non-GET requests require `Origin` = the app's origin. `/api/me` also returns `profile {name, username, photo: bool}` and `android {connected, last_upload}`.
 
 ## Sources (priority, highest first)
-manual > health (Shortcut) > apple (file) > mfp > csv > hevy_live (connected Hevy, computed in the browser from the server's workouts) > hevy (CSV) > strong.
+manual > health (Shortcut) > hc (Health Connect) > apple (file) > mfp > csv > hevy_live (connected Hevy, computed in the browser from the server's workouts) > hevy (CSV) > strong.
 
 ## Files
 | Path | Role |
@@ -49,7 +53,10 @@ manual > health (Shortcut) > apple (file) > mfp > csv > hevy_live (connected Hev
 | `public/js/account.js` | API client: sign-in/out, pull/push, Hevy connect/sync, Health setup link, `SHORTCUT_URL` |
 | `public/js/pages/*.js` | one script per page; every page renders from the device copy, then `autoRefresh()` |
 | `public/js/importers/*` | file imports (Apple export.zip/xml streaming, Hevy CSV, Strong CSV, MFP zip/CSV, spreadsheet) |
-| `worker/index.js`, `auth.js`, `hevy.js`, `util.js`, `schema.sql` | the server |
+| `worker/index.js`, `auth.js`, `hevy.js`, `profile.js`, `util.js`, `schema.sql` | the server (`profile.js`: profile get/put/public lookup, username rules) |
+| `public/connect.html` + `js/pages/connect.js` | (2026-10-29) sign-in, then the Integrations list (`details.int` rows `#health`, `#android`, `#hevy`, `#strong`, `#mfp`; one open at a time; `#name` opens one) |
+| `public/profile.html` + `js/pages/profile.js`, `public/user.html` + `js/pages/user.js` | the profile (photo resized to 256 px JPEG on the device) and the public `/u/<username>` page |
+| `public/icons/` | the integrations' app icons (192 px PNG) |
 | `wrangler.jsonc` | Worker config: assets `public/`, D1 binding `DB` (database `motus`), cron; no vars (a comment lists the secret names) |
 | `.dev.vars` (git-ignored) | local secrets: HEVY_SECRET, CODE_PEPPER, DEV_SHOW_CODES=1 |
 | `.github/workflows/test.yml`, `pages.yml` | tests on every push; GitHub Pages publishes `public/` (no accounts there) |
@@ -68,10 +75,12 @@ Production secrets via `npx wrangler secret put`: `HEVY_SECRET` (32 random bytes
 - Live: pages 200, deployed files match the repo, signed-out and cross-site requests refused.
 - Windows note: local D1 needs `--persist-to <short path>` here (scratch path too long → SQLITE_CANTOPEN).
 - 2026-10-28: the owner signed in with a code from their Gmail; the v1 Shortcut ran on their iPhone (Finish, Health permission, upload); 21–28 Oct stored with Hijri dates converted (`hijri exact: true` in the log). `npm test`: 197 checks. v2 reader benchmark: 18,000 samples ~12–19 ms on the laptop.
+- 2026-10-29 (`6be8e99`): `npm test` 245 checks (core 43, importers 65, store 20, server 117). On `wrangler dev` at 393×852, dark and light: signed out Connect shows sign-in + icons; signed in the Integrations list; Profile saves name, username (cleaned to lower case), a photo (5 KB) that also shows in the nav; `/u/<username>` shows only photo, name, username; Workouts shows "Connect Hevy / Strong" with no tracker and the link is hidden; Home shows "Workout days" with the key. No sideways scroll. Live: pages, icons, `/u/…`, `/api/u/…` (404 for unknown), `/api/upload/hc` (401 without a token) checked after deploy (version 58d01948).
+- Windows note: an old `wrangler dev` from 27 Oct was still holding port 8787 and serving stale code; check `Get-NetTCPConnection -LocalPort 8787` before trusting a local test. The Browser pane reads launch configs from the Selenerie project, so start `wrangler dev` with Bash in the background and open the URL.
 ## Known issues
 - v1 Shortcut (the current public link) doubles steps when someone has an iPhone and a Watch; fixed in v2 (not yet installed).
 - The upload-shape log in `worker/index.js` is temporary (digits masked); remove later.
 - Free plan 10 ms CPU: a 30-day v2 upload may go over it.
 - `wrangler tail` stops following after every deploy: restart it.
 ## Not verified
-Hevy with a real key; the v2 Shortcut and the daily automation on the iPhone; an Arabic-language phone; free-plan CPU limits under real load.
+Hevy with a real key; the v2 Shortcut and the daily automation on the iPhone; an Arabic-language phone; free-plan CPU limits under real load; **Android end to end** (HC Webhook importing the settings file and uploading from a real phone); the photo picker and Share sheet on a real iPhone.

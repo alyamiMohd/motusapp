@@ -1,6 +1,8 @@
 # Next steps (as of 2026-10-28 16:10, UTC+03)
 
 ## Prioritized
+- [ ] (2026-10-29) Owner looks at the new Connect, Profile (photo, username, share link), Workouts and Home on the iPhone and says what to change.
+- [ ] (2026-10-29) **Android on a real phone**: someone with Android installs HC Webhook, downloads the setup file from Connect → Health Connect, imports it (⋮ → Settings backup → Import), grants permissions; Claude checks the `hc upload:` counts in `wrangler tail` and the days in D1 (never print values). Check HC Webhook's import screen wording matches Connect's step 3.
 - [ ] **Owner installs Shortcut v2** from https://motus.motusapp.workers.dev/setup/ (remove old profile → install new profile + full trust → delete old Motus → add new, name exactly "Motus" → Finish → Copy iCloud Link). Then Claude: check counts in the log/D1 (30 days arrived, steps not doubled; never print values), set the new link in `SHORTCUT_URL` (`public/js/account.js`) and `public/shortcut.html`, delete `public/setup/`, `git checkout public/_headers`, deploy, commit, restart the tail.
 - [ ] If the 30-day upload fails on CPU (free plan 10 ms): tell the owner the fix is Workers Paid ($5/month), or shorten the first run.
 - [ ] Owner sets up the **daily automation** (Shortcuts → Automation → + → Time of Day → Daily → Run Immediately → Motus) and Claude checks the next morning's upload.
