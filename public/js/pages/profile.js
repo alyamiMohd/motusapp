@@ -32,6 +32,12 @@ function show(p) {
   $("initial").textContent = ((p.name || me.email || "M").trim().charAt(0) || "M").toUpperCase();
   $("photo").hidden = !p.avatar; $("initial").hidden = !!p.avatar; $("b-nophoto").hidden = !p.avatar;
   if (p.avatar) $("photo").src = p.avatar;
+  const pub = !!p.public;
+  for (const b of $("vis").querySelectorAll("button")) b.setAttribute("aria-pressed", String((b.dataset.v === "1") === pub));
+  $("vis-note").textContent = pub ? "Everyone signed in to Motus can see your sleep, steps, calories, weight and workouts. Your email never shows."
+    : "Only your friends can see your sleep, steps, calories, weight and workouts. Others see just your name and photo.";
+  $("share-note").textContent = pub ? "Anyone with the link sees your name and photo; people signed in to Motus also see your dashboard."
+    : "Anyone with the link sees your name and photo, and can ask to be your friend. Your numbers show only to friends.";
   $("sharebox").hidden = !p.username;
   if (p.username) { const l = profileLink(p.username); $("link").href = l; $("link").textContent = l; }
   $("b-share").hidden = !navigator.share;
@@ -58,6 +64,12 @@ $("f-photo").addEventListener("change", async () => {
   try { await save({ avatar: await shrink(f) }, "Photo saved."); } catch (e) { say("profile", esc(e.message), "bad"); }
 });
 $("b-nophoto").onclick = () => save({ avatar: null }, "Photo removed.");
+$("vis").addEventListener("click", e => {
+  const b = e.target.closest("button[data-v]");
+  if (!b || (b.dataset.v === "1") === !!saved.public) return;
+  if (b.dataset.v === "1" && !confirm("Make your dashboard public? Everyone signed in to Motus will see your sleep, steps, calories, weight and workouts.")) return;
+  save({ public: b.dataset.v === "1" }, b.dataset.v === "1" ? "Your dashboard is public now." : "Only your friends can see your dashboard now.");
+});
 
 $("b-copy").onclick = async () => {
   try { await navigator.clipboard.writeText($("link").href); say("profile", "Link copied.", "ok"); }
@@ -78,7 +90,7 @@ $("b-delete").onclick = async () => {
 initNav("profile", () => {});
 const me = cachedMe();
 $("out").hidden = !!me; $("in").hidden = !me;
-if (me) show({ name: me.profile && me.profile.name, username: me.profile && me.profile.username, avatar: cachedPhoto() });
+if (me) show({ name: me.profile && me.profile.name, username: me.profile && me.profile.username, avatar: cachedPhoto(), public: !!(me.profile && me.profile.public) });
 checkAccount().then(async r => {
   $("out").hidden = !!r.me; $("in").hidden = !r.me;
   if (r.me) show(await getProfile().catch(() => saved));

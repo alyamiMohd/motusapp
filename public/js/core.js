@@ -107,6 +107,7 @@ export function initNav(active, onChange) {
       ${link("./", "home", "Home")}
       ${link("workouts.html", "workouts", "Workouts").replace("<a ", s.workouts || active === "workouts" ? "<a " : "<a hidden ")}
       ${link("weeks.html", "weeks", "Weeks")}
+      ${link("friends.html", "friends", "Friends")}
       ${link("connect.html", "connect", "Connect")}
       <button id="toggle" aria-expanded="false" aria-controls="standards">Standards</button>
     </span>

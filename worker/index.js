@@ -10,12 +10,15 @@
 //   POST /api/android | DELETE          new HC Webhook token + its settings file / disconnect Health Connect
 //   POST /api/upload/hc                 HC Webhook's upload from an Android phone (Authorization: Bearer <its token>)
 //   GET|PUT /api/profile                name, username, photo        GET /api/u/:username                  public: those three
-//   GET /u/:username                    the public profile page
+//   GET /u/:username                    the public profile page (and, signed in, their dashboard when allowed)
+//   GET /api/friends                    friends + requests           POST /api/friends {username} | /accept | DELETE /:username
+//   GET /api/people?q= | /:username     find people; one person      GET /api/people/:username/data        their dashboard
 //
 // Every 30 minutes (cron) Hevy accounts are synced a few at a time and old sign-in codes are cleared.
 import { start, verify, logout, sessionUser } from "./auth.js";
 import * as hevy from "./hevy.js";
 import * as profile from "./profile.js";
+import * as friends from "./friends.js";
 import { mergeSource } from "../public/js/merge.js";
 import { readHealthUpload, fromHealthConnect, HIJRI_EXACT } from "../public/js/health.js";
 import { sha256, token, allow, json, fail } from "./util.js";
@@ -127,6 +130,21 @@ async function api(req, env, url) {
     await touch(env, user.id);
     return json({ ok: true });
   }
+  if (path === "/api/friends" && method === "GET") return friends.list(env, user.id);
+  if ((path === "/api/friends" || path === "/api/friends/accept") && method === "POST") {
+    if (!(await allow(env.DB, "friend:" + user.id, 60, 3600))) return fail(429, "Too many requests. Wait a little.");
+    const b = await body(req);
+    return path === "/api/friends" ? friends.request(env, user.id, b.username) : friends.accept(env, user.id, b.username);
+  }
+  if ((m = /^\/api\/friends\/([^/]+)$/.exec(path)) && method === "DELETE") return friends.remove(env, user.id, decodeURIComponent(m[1]));
+  if (path === "/api/people" && method === "GET") {
+    if (!(await allow(env.DB, "people:" + user.id, 240, 3600))) return fail(429, "Too many searches. Wait a little.");
+    return friends.search(env, user.id, url.searchParams.get("q"));
+  }
+  if ((m = /^\/api\/people\/([^/]+)(\/data)?$/.exec(path)) && method === "GET") {
+    if (!(await allow(env.DB, "people:" + user.id, 240, 3600))) return fail(429, "Too many lookups. Wait a little.");
+    return m[2] ? friends.dashboard(env, user.id, decodeURIComponent(m[1])) : friends.person(env, user.id, decodeURIComponent(m[1]));
+  }
   if (path === "/api/profile" && method === "GET") return json(await profile.get(env, user.id));
   if (path === "/api/profile" && method === "PUT") {
     if (!(await allow(env.DB, "profile:" + user.id, 60, 3600))) return fail(429, "Too many changes. Wait a little.");
@@ -150,10 +168,11 @@ async function me(env, user) {
   const h = await env.DB.prepare("SELECT synced, error, next_page FROM hevy WHERE user_id = ?").bind(user.id).first();
   const tokens = (await env.DB.prepare("SELECT token_hash, used FROM upload_tokens WHERE user_id = ?").bind(user.id).all()).results;
   const t = tokens.find(r => !r.token_hash.startsWith(HC)), a = tokens.find(r => r.token_hash.startsWith(HC));
-  const p = await env.DB.prepare("SELECT name, username, avatar IS NOT NULL AS photo FROM profiles WHERE user_id = ?").bind(user.id).first();
+  const p = await env.DB.prepare("SELECT p.name, p.username, p.avatar IS NOT NULL AS photo, s.public FROM profiles p " +
+    "LEFT JOIN sharing s ON s.user_id = p.user_id WHERE p.user_id = ?").bind(user.id).first();
   return {
     email: user.email,
-    profile: { name: p ? p.name : null, username: p ? p.username : null, photo: !!(p && p.photo) },
+    profile: { name: p ? p.name : null, username: p ? p.username : null, photo: !!(p && p.photo), public: !!(p && p.public) },
     hevy: h ? { connected: true, synced: h.synced, error: h.error, syncing: h.next_page != null } : { connected: false },
     health: t ? { connected: true, last_upload: t.used } : { connected: false },
     android: a ? { connected: true, last_upload: a.used } : { connected: false },
@@ -293,7 +312,7 @@ async function upload(req, env) {
 async function deleteAccount(req, env, user) {
   const db = env.DB;
   await db.batch(["sessions", "upload_tokens", "sources", "hevy", "workouts", "profiles"].map(t => db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(user.id))
-    .concat([db.prepare("DELETE FROM login_codes WHERE email = ?").bind(user.email), db.prepare("DELETE FROM users WHERE id = ?").bind(user.id)]));
+    .concat(friends.forget(env, user.id), [db.prepare("DELETE FROM login_codes WHERE email = ?").bind(user.email), db.prepare("DELETE FROM users WHERE id = ?").bind(user.id)]));
   return json({ ok: true }, 200, { "set-cookie": `motus=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${new URL(req.url).protocol === "https:" ? "; Secure" : ""}` });
 }
 

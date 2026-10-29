@@ -474,4 +474,72 @@ section("sending the code");
     /SECRET\.length < 32/.test(gs) && /\^\\d\{6\}\$/.test(gs) && (gs.match(/MailApp\.sendEmail/g) || []).length === 1);
 }
 
+section("people and friends");
+{
+  const [ana, ben, cai, dee] = await Promise.all(["ana@example.com", "ben@example.com", "cai@example.com", "dee@example.com"].map(signIn));
+  const as = c => ({ cookie: c });
+  check("asking needs a username of your own", (await call("POST", "/api/friends", { ...as(ana), body: { username: "nobody" } })).status === 409);
+  await call("PUT", "/api/profile", { ...as(ana), body: { name: "Ana Lima", username: "ana" } });
+  await call("PUT", "/api/profile", { ...as(ben), body: { name: "Ben Ode", username: "ben.o" } });
+  await call("PUT", "/api/profile", { ...as(cai), body: { name: "Cai Wu", username: "cai", public: true } });
+  await call("PUT", "/api/sources/apple", { ...as(ben), body: { days: { "2026-10-27": { steps: 8100, sleep_hours: 7.2 } } } });
+  await call("PUT", "/api/sources/apple", { ...as(cai), body: { days: { "2026-10-27": { steps: 12000 } } } });
+  check("profiles are private by default; public can be turned on", (await call("GET", "/api/profile", as(ben))).json.public === false &&
+    (await call("GET", "/api/profile", as(cai))).json.public === true);
+
+  r = await call("GET", "/api/people?q=a", as(ana));
+  check("search needs 2 characters", r.status === 200 && r.json.people.length === 0);
+  r = await call("GET", "/api/people?q=wu", as(ana));
+  check("a public profile is found by part of the name", r.json.people.length === 1 && r.json.people[0].username === "cai" && r.json.people[0].relation === "none");
+  r = await call("GET", "/api/people?q=ben", as(ana));
+  check("a private profile isn't found by part of a name or username", r.json.people.length === 0);
+  r = await call("GET", "/api/people?q=@Ben.O", as(ana));
+  check("…but is found by its exact username", r.json.people.length === 1 && r.json.people[0].username === "ben.o" && !("email" in r.json.people[0]));
+  check("search and people need sign-in", (await call("GET", "/api/people?q=cai")).status === 401 && (await call("GET", "/api/people/cai/data")).status === 401);
+
+  r = await call("GET", "/api/people/ben.o/data", as(ana));
+  check("a private dashboard is refused to someone who isn't a friend", r.status === 403 && !r.text.includes("8100"));
+  r = await call("GET", "/api/people/ben.o", as(ana));
+  check("…their name and photo still show, with canSee false", r.status === 200 && r.json.name === "Ben Ode" && r.json.canSee === false && r.json.relation === "none");
+  r = await call("GET", "/api/people/cai/data", as(ana));
+  check("a public dashboard: anyone signed in sees the numbers, never the email", r.status === 200 && r.json.sources.apple.data.days["2026-10-27"].steps === 12000 &&
+    !r.text.includes("cai@example.com") && !("me" in r.json) && r.json.person.username === "cai");
+
+  r = await call("POST", "/api/friends", { ...as(ana), body: { username: "ben.o" } });
+  check("a request is sent", r.status === 200 && r.json.relation === "requested");
+  check("…not yet a friend: still private", (await call("GET", "/api/people/ben.o/data", as(ana))).status === 403);
+  r = await call("GET", "/api/friends", as(ben));
+  check("Ben sees Ana's request waiting", r.json.incoming.length === 1 && r.json.incoming[0].username === "ana" && r.json.friends.length === 0);
+  check("only the person asked can accept", (await call("POST", "/api/friends/accept", { ...as(ana), body: { username: "ben.o" } })).status === 409);
+  r = await call("POST", "/api/friends/accept", { ...as(ben), body: { username: "ana" } });
+  check("Ben accepts: friends", r.status === 200 && r.json.relation === "friend");
+  r = await call("GET", "/api/people/ben.o/data", as(ana));
+  check("a friend sees the private dashboard", r.status === 200 && r.json.sources.apple.data.days["2026-10-27"].steps === 8100);
+  check("…both ways", (await call("GET", "/api/people/ana/data", as(ben))).status === 200);
+  check("…but a stranger still can't", (await call("GET", "/api/people/ben.o/data", as(cai))).status === 403);
+  r = await call("GET", "/api/people?q=ode", as(ana));
+  check("friends find each other by name", r.json.people.length === 1 && r.json.people[0].relation === "friend");
+  check("a cross-site request can't add friends", (await call("POST", "/api/friends", { ...as(cai), origin: "https://evil.example", body: { username: "ana" } })).status === 403);
+
+  await call("POST", "/api/friends", { ...as(cai), body: { username: "ana" } });
+  r = await call("POST", "/api/friends", { ...as(ana), body: { username: "cai" } });
+  check("asking someone who already asked you makes you friends", r.json.relation === "friend" && (await call("GET", "/api/friends", as(cai))).json.friends.length === 1);
+  await call("DELETE", "/api/friends/ben.o", as(ana));
+  check("removing a friend ends it both ways", (await call("GET", "/api/people/ben.o/data", as(ana))).status === 403 &&
+    (await call("GET", "/api/people/ana/data", as(ben))).status === 403);
+  await call("POST", "/api/friends", { ...as(ben), body: { username: "cai" } });
+  r = await call("DELETE", "/api/friends/ben.o", as(cai));
+  check("declining a request removes it", (await call("GET", "/api/friends", as(ben))).json.outgoing.length === 0);
+  check("you can't add yourself", (await call("POST", "/api/friends", { ...as(ana), body: { username: "ana" } })).status === 400);
+  check("switching to private hides the dashboard from strangers again",
+    (await call("PUT", "/api/profile", { ...as(cai), body: { public: false } })).json.public === false && (await call("GET", "/api/people/cai/data", as(dee))).status === 403);
+
+  await call("POST", "/api/friends", { ...as(cai), body: { username: "ben.o" } });
+  const caiId = env.DB.sql("SELECT id FROM users WHERE email = ?", "cai@example.com")[0].id;
+  await call("DELETE", "/api/me", as(cai));
+  const left = ["sharing", "friends", "friend_requests"].map(t => JSON.stringify(env.DB.sql(`SELECT * FROM ${t}`)).includes(caiId));
+  check("deleting an account removes its sharing, friendships and requests", !left.some(Boolean) &&
+    (await call("GET", "/api/friends", as(ana))).json.friends.length === 0);
+}
+
 finish();

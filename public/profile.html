@@ -45,10 +45,17 @@
     <div class="act"><button class="btn" id="b-save" type="button">Save</button></div>
     <p class="msg" id="m-profile" role="status"></p>
 
+    <section>
+      <h2>Who can see your dashboard</h2>
+      <div class="seg" id="vis" role="group" aria-label="Who can see your dashboard">
+        <button type="button" data-v="0">Friends only</button><button type="button" data-v="1">Everyone on Motus</button></div>
+      <p class="note" id="vis-note"></p>
+    </section>
+
     <section id="sharebox" hidden>
       <h2>Share your profile</h2>
       <p class="share"><a id="link" href=""></a></p>
-      <p class="note">Shows only your name, photo and username. Your numbers stay private.</p>
+      <p class="note" id="share-note"></p>
       <div class="act"><button class="btn ghost" id="b-share" type="button">Share</button><button class="btn ghost" id="b-copy" type="button">Copy link</button></div>
     </section>
 

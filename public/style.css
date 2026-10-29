@@ -226,5 +226,22 @@ details > .recent { padding-left: 12px; font-size: 13px; }
 .profile section { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 22px; }
 .public { text-align: center; padding-top: 32px; }
 .public .photo { margin: 0 auto 14px; width: 112px; height: 112px; }
-.public b { display: block; font-size: 22px; font-weight: 600; }
+.public #card > b { display: block; font-size: 22px; font-weight: 600; }
+.public .rel { justify-content: center; }
+.public .theirs { text-align: left; margin-top: 28px; border-top: 1px solid var(--line); padding-top: 20px; }
 .kv code, .steps code { font: 12px/1.5 ui-monospace, "SF Mono", Consolas, monospace; background: var(--line); border-radius: 4px; padding: 1px 4px; }
+
+/* friends: people as rows of photo, name and @username, with their buttons on the right */
+.people { list-style: none; margin: 0; padding: 0; }
+.people li { display: flex; align-items: center; gap: 10px; min-height: 64px; border-top: 1px solid var(--line); }
+.people li:last-child { border-bottom: 1px solid var(--line); }
+.people .who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.people .who > span:last-child { min-width: 0; }
+.people .who b { display: block; font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.people .who small { display: block; color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.people .pic { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex: none; background: var(--line); color: var(--muted);
+               display: flex; align-items: center; justify-content: center; font-weight: 600; }
+.people .pic img { width: 100%; height: 100%; object-fit: cover; }
+.people .acts { display: flex; gap: 6px; flex: none; }
+.friends .search { margin-top: 20px; }
+.friends section { margin-top: 32px; }

@@ -80,3 +80,26 @@ CREATE TABLE IF NOT EXISTS rate (
   count INTEGER NOT NULL,
   reset INTEGER NOT NULL
 );
+
+-- who may see someone's dashboard (added 2026-10-29): public = everyone signed in to Motus; otherwise friends only.
+-- No row means private.
+CREATE TABLE IF NOT EXISTS sharing (
+  user_id TEXT PRIMARY KEY,
+  public INTEGER NOT NULL DEFAULT 0,
+  updated INTEGER NOT NULL
+);
+
+-- friends, one row each way once a request is accepted; a request waits in friend_requests until then
+CREATE TABLE IF NOT EXISTS friends (
+  user_id TEXT NOT NULL,
+  friend_id TEXT NOT NULL,
+  since INTEGER NOT NULL,
+  PRIMARY KEY (user_id, friend_id)
+);
+CREATE TABLE IF NOT EXISTS friend_requests (
+  from_id TEXT NOT NULL,
+  to_id TEXT NOT NULL,
+  created INTEGER NOT NULL,
+  PRIMARY KEY (from_id, to_id)
+);
+CREATE INDEX IF NOT EXISTS friend_requests_to ON friend_requests (to_id);

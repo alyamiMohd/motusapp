@@ -13,7 +13,8 @@ A quiet dashboard for your sleep, steps, food, weight and workouts.
 - **Workouts** (only once Hevy or Strong is connected): a rating for your last workout and for the last 4 weeks, workouts per week, every exercise's estimated one-rep max and its trend, and a rating for each workout this week and last.
 - **Weeks:** one row per finished week, downloadable as CSV.
 - **Standards:** your own goals (green when you reach them), training days, kg or lb, and whether weeks start on Sunday or Monday.
-- **Profile** (the round button top right): your name, photo and a username; `…/u/<username>` is a page you can share that shows only those three. Also signing out and deleting the account.
+- **Profile** (the round button top right): your name, photo and a username; `…/u/<username>` is a page you can share. Who can see your dashboard: **friends only** (the default) or **everyone on Motus**. Also signing out and deleting the account.
+- **Friends**: find people by name or @username (private profiles only by their exact username), ask them to be friends, accept or decline requests. A friend's profile shows their dashboard; so does anyone's public profile to people signed in.
 
 ## How connecting works
 
@@ -63,18 +64,18 @@ GitHub Pages (`.github/workflows/pages.yml`) keeps publishing `public/` as the a
 
 | Path | What it is |
 |---|---|
-| `public/` | The app: `index.html`, `workouts.html`, `weeks.html`, `connect.html`, `profile.html`, `user.html` (the public `/u/<username>` page), `shortcut.html`, `style.css`, `icons/` (the integrations' app icons), `js/` |
+| `public/` | The app: `index.html`, `workouts.html`, `weeks.html`, `connect.html`, `profile.html`, `friends.html`, `user.html` (the `/u/<username>` page: name and photo for anyone, the dashboard when you may see it), `shortcut.html`, `style.css`, `icons/` (the integrations' app icons), `js/` |
 | `public/js/core.js` | Dates, goals and settings, formatting, the navbar |
 | `public/js/store.js`, `merge.js` | Data on the device; sources and their priority (hand entry > Apple Health connected > Apple Health file > MyFitnessPal > spreadsheet > Hevy connected > Hevy file > Strong); merging shared with the server |
 | `public/js/account.js` | Sign-in, keeping the device in step with the account, connecting Hevy, Apple Health and Health Connect, the profile |
 | `public/js/health.js` | Reading the Shortcut's uploads (also phones set to Arabic), HC Webhook's, and Health Exporter JSON; shared with the server |
 | `public/js/stats.js`, `demo.js`, `importers/` | Workout summaries and ratings, the demo, one importer per file type |
-| `worker/` | The server: `index.js` (routes, cron), `auth.js`, `hevy.js`, `profile.js`, `util.js`, `schema.sql` |
+| `worker/` | The server: `index.js` (routes, cron), `auth.js`, `hevy.js`, `profile.js`, `friends.js` (who may see whose dashboard), `util.js`, `schema.sql` |
 | `tests/` | `node tests/test_*.mjs`; `d1.mjs` runs the server's SQL on Node's SQLite; fixtures are made up |
 
 ## Privacy and security
 
 - Signed in, a person's numbers are stored in the Motus database so they can arrive by themselves and show on any device. Only hashes of sign-in codes, session cookies, Shortcut and Health Connect tokens are stored; Hevy keys are encrypted. Deleting the account removes everything at once, the profile too.
-- A profile's public page shows the name, photo and username, nothing else; no health numbers are ever public. Clearing the username takes the page down. Photos are cropped and shrunk on the device (256 px) before they're sent.
+- A profile's page shows the name, photo and username to anyone with the link. Someone's numbers show only to themselves, their friends, and, if they chose "Everyone on Motus", to people signed in; never to visitors without an account, and never their email. Clearing the username takes the page down. Photos are cropped and shrunk on the device (256 px) before they're sent.
 - Sessions are HttpOnly, SameSite=Lax cookies; every change must come from Motus's own pages (Origin check). Sign-in codes expire in 10 minutes, allow 5 tries, and are rate-limited per address and per IP.
 - No analytics, cookies other than the session, or third-party scripts. The pages' Content-Security-Policy allows only their own scripts and their own server.

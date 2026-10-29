@@ -73,13 +73,19 @@ export function restore(obj) {
   return valid.length;
 }
 
-// The merged view every page draws from.
+// The merged view every page draws from: this device's sources, or the demo when there are none.
 export function getData(todayISO = today) {
-  const state = load(), ids = Object.keys(SOURCES).filter(id => state.sources[id]);
-  if (!ids.length) return { ...generateDemo(todayISO), demo: true, sources: [] };
+  const state = load();
+  if (!Object.keys(SOURCES).some(id => state.sources[id])) return { ...generateDemo(todayISO), demo: true, sources: [] };
+  return dataFrom(state.sources);
+}
+
+// The same merged view of any set of sources (a friend's dashboard): { id: { days, exercises, imported } }
+export function dataFrom(all) {
+  const ids = Object.keys(SOURCES).filter(id => all[id]);
   const days = {}, exercises = {};
   for (const id of ids) {
-    const s = state.sources[id];
+    const s = all[id];
     for (const [d, r] of Object.entries(s.days || {})) {
       const rec = days[d] || (days[d] = {});
       for (const k of BODY) if (rec[k] == null && r[k] != null) rec[k] = r[k];
@@ -92,8 +98,8 @@ export function getData(todayISO = today) {
   }
   for (const rows of Object.values(exercises)) rows.sort((a, b) => a[0].localeCompare(b[0]));
   const sources = ids.map(id => {
-    const ds = Object.keys(state.sources[id].days || {}).sort();
-    return { id, name: SOURCES[id], imported: state.sources[id].imported, count: ds.length, first: ds[0], last: ds[ds.length - 1] };
+    const ds = Object.keys(all[id].days || {}).sort();
+    return { id, name: SOURCES[id], imported: all[id].imported, count: ds.length, first: ds[0], last: ds[ds.length - 1] };
   });
   return { days, exercises, demo: false, sources };
 }

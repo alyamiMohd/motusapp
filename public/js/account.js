@@ -71,16 +71,22 @@ export async function pull() {
   const etag = get(ETAG);
   const d = await api("/api/data", { headers: etag ? { "if-none-match": etag } : {} });
   if (d.status === 304) return false;
-  const sources = {};
-  for (const [id, s] of Object.entries(d.sources || {})) sources[id] = { ...s.data, imported: s.imported };
-  if (d.workouts && d.workouts.length) {
-    const lifts = summarizeWorkouts(fromApiWorkouts(d.workouts));    // dated in this device's time zone
-    sources.hevy_live = { days: lifts.days, exercises: lifts.exercises, imported: d.me.hevy.synced ? new Date(d.me.hevy.synced).toISOString() : null };
-  }
-  setAll(sources);
+  setAll(toSources(d, d.me.hevy.synced));
   set(ME, JSON.stringify({ email: d.me.email, ...d.me }));
   set(ETAG, d.etag || null);
   return true;
+}
+
+// An account's data as it comes from the server -> the sources store.js draws from. Workouts are dated in this
+// device's time zone. Used for my own account and for a friend's dashboard.
+export function toSources(d, hevySynced = null) {
+  const sources = {};
+  for (const [id, s] of Object.entries(d.sources || {})) sources[id] = { ...s.data, imported: s.imported };
+  if (d.workouts && d.workouts.length) {
+    const lifts = summarizeWorkouts(fromApiWorkouts(d.workouts));
+    sources.hevy_live = { days: lifts.days, exercises: lifts.exercises, imported: hevySynced ? new Date(hevySynced).toISOString() : null };
+  }
+  return sources;
 }
 
 // Every page: refresh from the account when signed in. Quiet when offline or signed out. Then, on an iPhone, bring
@@ -165,6 +171,17 @@ export async function saveProfile(fields) {
   return p;
 }
 export const profileLink = username => location.origin + "/u/" + encodeURIComponent(username);
+
+// People and friends (worker/friends.js). Someone's dashboard shows to their friends, and to everyone signed in when
+// their profile is public.
+const who = u => encodeURIComponent(String(u || "").replace(/^@/, ""));
+export const getFriends = () => api("/api/friends");
+export const searchPeople = q => api("/api/people?q=" + encodeURIComponent(q));
+export const getPerson = username => api("/api/people/" + who(username));
+export const getPersonData = username => api("/api/people/" + who(username) + "/data");
+export const addFriend = username => api("/api/friends", { method: "POST", body: { username } });
+export const acceptFriend = username => api("/api/friends/accept", { method: "POST", body: { username } });
+export const removeFriend = username => api("/api/friends/" + who(username), { method: "DELETE" });
 
 // Apple Health: a fresh token for the Motus Shortcut, handed to it by running it once with the token as its input.
 export async function healthSetupLink() {
