@@ -93,13 +93,15 @@ export function refreshNav() {
 }
 
 // ---- navbar + Standards panel. onChange runs whenever a goal or setting changes. ----
+// The brand mark, found next to this module so it works on /u/<name> pages and under a sub-path (GitHub Pages) alike
+export const MARK = new URL("../brand/mark.png", import.meta.url).pathname;
 export function initNav(active, onChange) {
   const link = (href, key, text) => `<a href="${href}" class="${active === key ? "on" : ""}"${active === key ? ' aria-current="page"' : ""}>${text}</a>`;
   const s = navState();
   document.body.insertAdjacentHTML("afterbegin", `
 <nav>
   <div class="bar">
-    <a href="./" class="brand"><b>Motus</b></a>
+    <a href="${new URL("../", import.meta.url).pathname}" class="brand" aria-label="Motus home"><img src="${MARK}" alt="" width="46" height="46"><b>motus</b></a>
     <a href="profile.html" class="me${active === "profile" ? " on" : ""}" aria-label="${s.me ? "Your profile" : "Sign in"}"${active === "profile" ? ' aria-current="page"' : ""}>${face(s)}</a>
     <span class="links">
       ${link("./", "home", "Home")}
