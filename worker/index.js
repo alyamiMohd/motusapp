@@ -12,7 +12,7 @@
 import { start, verify, logout, sessionUser } from "./auth.js";
 import * as hevy from "./hevy.js";
 import { mergeSource } from "../public/js/merge.js";
-import { readHealthUpload, HIJRI_EXACT } from "../public/js/health.js";
+import { readHealthUpload, HIJRI_EXACT, stepCandidates } from "../public/js/health.js";
 import { sha256, token, allow, json, fail } from "./util.js";
 
 const DEVICE_SOURCES = ["manual", "apple", "mfp", "csv", "hevy", "strong"];
@@ -191,6 +191,8 @@ async function upload(req, env) {
       if (+payload.v >= 5) shape[k] += `, ${lines("starts").length || lines("starts_b").length} start times`;
     }
     console.log("upload shape:", JSON.stringify(shape), "| hijri exact:", HIJRI_EXACT);
+    // TEMPORARY: candidate step totals for this day (the owner asked for Health's exact numbers)
+    if (+payload.v >= 5 && typeof payload.day === "string") console.log("steps", payload.day.slice(0, 10), JSON.stringify(stepCandidates(payload)));
   }
   if (!Object.keys(days).length) {
     // v3 sends in parts; a part with nothing in the window (no energy recorded in 2 days, say) is fine

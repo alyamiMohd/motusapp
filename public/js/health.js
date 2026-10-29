@@ -102,6 +102,49 @@ export function mergeLikeHealth(samples, phone) {          // [{ a (start, in mi
   for (const s of samples) if (best.get(Math.floor(s.a / 60)) === pri[s.src]) total += s.v;
   return total;
 }
+// TEMPORARY (2026-10-29): candidate merge rules for one v5 day's steps, logged next to each other to find the one that
+// matches the owner's Health chart on all 30 days (the hourly rule matched 27-29 Oct but is 5-14% off on some days).
+// Totals only, never names: sources show as their kind (health/watch/phone/app) and total.
+export function stepCandidates(p) {
+  const col = t => String(t || "").split(/\r?\n/), phone = String(p.device || "").trim();
+  const src = col(p.steps_sources), st = col(p.steps_starts), en = col(p.steps_ends), samples = [];
+  col(p.steps_values).forEach((v, i) => {
+    const n = num(v), a = stampMins(st[i] || ""), b = stampMins(en[i] || "");
+    if (n != null && a != null) samples.push({ v: n, src: (src[i] || "").trim() || "?", a, b: b == null ? a : Math.max(a, b) });
+  });
+  const order = healthOrder(samples, phone), pri = Object.fromEntries(order.map((s, i) => [s, i]));
+  const total = {};
+  for (const s of samples) total[s.src] = (total[s.src] || 0) + s.v;
+  const out = { sources: order.map(s => ["health", "watch", "phone", "app"][kind(s, phone)] + ":" + Math.round(total[s])).join(" ") };
+  const byStart = size => {                              // the top source with a sample starting in each stretch
+    const best = new Map();
+    for (const s of samples) { const k = Math.floor(s.a / size); if (!(best.get(k) <= pri[s.src])) best.set(k, pri[s.src]); }
+    return samples.reduce((t, s) => t + (best.get(Math.floor(s.a / size)) === pri[s.src] ? s.v : 0), 0);
+  };
+  const hours = s => { const h = []; for (let k = Math.floor(s.a / 60); k <= Math.floor(Math.max(s.a, s.b - 1e-6) / 60); k++) h.push(k); return h; };
+  // a source occupies every hour its samples touch; a sample counts if its start hour isn't occupied by a higher one
+  const occ = new Map();
+  for (const s of samples) for (const k of hours(s)) if (!(occ.get(k) <= pri[s.src])) occ.set(k, pri[s.src]);
+  // each sample's steps spread over the hours it covers, and per hour only the top source present counts
+  const share = new Map(), top = new Map();
+  for (const s of samples) for (const k of hours(s)) {
+    const lo = Math.max(s.a, k * 60), hi = Math.min(Math.max(s.b, s.a), (k + 1) * 60), len = Math.max(s.b - s.a, 0);
+    const part = len > 0 ? s.v * Math.max(hi - lo, 0) / len : s.v;
+    const key = k + "|" + s.src; share.set(key, (share.get(key) || 0) + part);
+    if (!(top.get(k) <= pri[s.src])) top.set(k, pri[s.src]);
+  }
+  let pro = 0;
+  for (const [key, v] of share) { const [k, s] = key.split("|"); if (top.get(+k) === pri[s]) pro += v; }
+  Object.assign(out, {
+    h60: byStart(60), m30: byStart(30), m15: byStart(15),
+    h60occ: samples.reduce((t, s) => t + (occ.get(Math.floor(s.a / 60)) === pri[s.src] ? s.v : 0), 0),
+    h60pro: pro,
+    top: total[order[0]] || 0,
+    max: Math.max(0, ...Object.values(total)),
+  });
+  for (const k of Object.keys(out)) if (typeof out[k] === "number") out[k] = Math.round(out[k]);
+  return out;
+}
 // "yyyy-MM-dd HH:mm[:ss]" -> minutes, quickly: a day's thousand samples share one date, converted (Hijri too) once
 const STAMP = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/;
 const DAY_MINS = new Map();
