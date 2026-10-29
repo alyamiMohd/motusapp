@@ -186,7 +186,7 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
   check("Shortcut upload with units: kJ converted, totals and sleep read", d["2026-10-26"].steps === 8123 && d["2026-10-26"].calories === 1800 &&
     d["2026-10-27"].calories === 1650 && d["2026-10-26"].active_kcal === 450 && d["2026-10-27"].weight_kg === 80.9 && d["2026-10-27"].sleep_hours === 6.67);
   const { build, toPlist } = await import("../tools/shortcut/build.mjs");
-  const wf = build(), acts = wf.WFWorkflowActions, ids = acts.map(a => a.WFWorkflowActionIdentifier);
+  const wf = build({ diag: false }), acts = wf.WFWorkflowActions, ids = acts.map(a => a.WFWorkflowActionIdentifier);
   const posts = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("downloadurl")).map(a => a.WFWorkflowActionParameters);
   const post = posts[0];
   const keys = posts.map(p => p.WFJSONValues.Value.WFDictionaryFieldValueItems.map(i => i.WFKey.Value.string).join("+")).join();
@@ -233,6 +233,9 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
   const uuids = new Set(acts.map(a => a.WFWorkflowActionParameters.UUID).filter(Boolean));
   const refs = [...JSON.stringify(wf).matchAll(/"OutputUUID":"([^"]+)"/g)].map(m => m[1]);
   check("Shortcut: every variable points at an action that exists", refs.length > 20 && refs.every(u => uuids.has(u)));
+  const withDiag = build().WFWorkflowActions;
+  check("TEMPORARY filter test: in the daily run only, today's steps counted with each filter alone, sent as diag_* fields",
+    withDiag.length === acts.length + 3 + 6 * 3 + 1 && JSON.stringify(withDiag).includes('"diag_between"'));
   check("Shortcut plist is well-formed XML text", /^<\?xml[\s\S]*<\/plist>\n$/.test(toPlist(wf)) && !/[<>]\w*undefined/.test(toPlist(wf)));
 }
 check("upload reader alone: nothing usable -> error", (() => { try { readHealthUpload({ v: 1 }); return false; } catch (e) { return true; } })());

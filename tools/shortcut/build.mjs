@@ -152,6 +152,37 @@ const dayRows = (start, end) => [
   { Bounded: true, Operator: 1003, Property: "Start Date", Removable: true, Values: { Date: LONG_AGO, AnotherDate: attach(end) } },
 ];
 
+// TEMPORARY (2026-10-29): which filters actually filter? v3.6's day-by-day Finds all came back empty on the owner's
+// iPhone. Today's steps are counted with each filter alone and the counts are sent as diag_* fields (one line per
+// sample, values only; the server logs line counts, nothing else). Remove once the answer is in.
+function diagBlock() {
+  const now = act("date", { UUID: uid(), WFDateActionMode: "Current Date" });
+  const today = adjust(out(uuidOf(now), "Date"), "Get Start of Day");
+  const tomorrow = adjust(out(uuidOf(today), "Adjusted Date"), "Add");
+  const T = out(uuidOf(today), "Adjusted Date"), M = out(uuidOf(tomorrow), "Adjusted Date");
+  const variants = {
+    all: [],
+    watch: [src(99, "Watch")],
+    iphone: [src(99, "iPhone")],
+    after: [{ Bounded: true, Operator: 2, Property: "Start Date", Removable: true, Values: { Date: attach(T) } }],
+    upto: [{ Bounded: true, Operator: 1003, Property: "Start Date", Removable: true, Values: { Date: LONG_AGO, AnotherDate: attach(M) } }],
+    between: [{ Bounded: true, Operator: 1003, Property: "Start Date", Removable: true, Values: { Date: attach(T), AnotherDate: attach(M) } }],
+  };
+  const acts = [now, today, tomorrow], fields = [];
+  for (const [name, rows] of Object.entries(variants)) {
+    const find = findSamples("Steps", 1, false, false, rows);
+    const values = act("properties.health.quantity", { UUID: uid(), CustomOutputName: "Value", WFContentItemPropertyName: "Value",
+      WFInput: attach(out(uuidOf(find), "Health Samples")) });
+    const joined = act("text.combine", { UUID: uid(), WFTextSeparator: "New Lines", text: attach(out(uuidOf(values), "Value")) });
+    acts.push(find, values, joined);
+    fields.push(["diag_" + name, text(out(uuidOf(joined), "Combined Text"))]);
+  }
+  acts.push(act("downloadurl", { UUID: uid(), Advanced: true, ShowHeaders: true, WFURL: text(named("Address")), WFHTTPMethod: "POST",
+    WFHTTPHeaders: dictItems([["Authorization", text("Bearer ", named("Token"))]]), WFHTTPBodyType: "JSON",
+    WFJSONValues: dictItems([["v", text("3")], ...fields]) }));
+  return acts;
+}
+
 // The last n days, today first: Steps and Active get one "day|sum[|unit]|group" line per day and group that has samples.
 function byDayBlock(n) {
   const now = act("date", { UUID: uid(), WFDateActionMode: "Current Date" });
@@ -190,7 +221,7 @@ function byDayBlock(n) {
     act("repeat.count", { GroupingIdentifier: g, WFControlFlowMode: 2, UUID: uid() })];
 }
 
-export function build() {
+export function build({ diag = true } = {}) {   // diag: the TEMPORARY filter test (diagBlock)
   // 1. Remember where to send (only when Motus → Finish passes "<url>|<token>")
   const save = act("documentpicker.save", { UUID: uid(), WFInput: attach(INPUT), WFAskWhereToSave: false,
     WFSaveFileOverwrite: true, WFFileDestinationPath: text("motus.txt") });
@@ -223,7 +254,7 @@ export function build() {
     post(["Steps", "Active"]),
   ];
   const FIRST = { move: 30, food: 30, days: 30 }, DAILY = { move: 2, food: 7, days: 3 };
-  const health = ifHasInput(read(FIRST), read(DAILY));
+  const health = ifHasInput(read(FIRST), [...(diag ? diagBlock() : []), ...read(DAILY)]);
 
   // 3. Back to Motus
   const back = act("text.replace", { UUID: uid(), WFInput: text(named("Address")),

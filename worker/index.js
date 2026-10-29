@@ -155,7 +155,14 @@ async function upload(req, env) {
   if (!row) return fail(401, "This Shortcut isn't connected any more. Set up Apple Health again in Motus → Connect.");
   if (!(await allow(env.DB, "upload:" + hash, 60, 3600))) return fail(429, "Too many uploads. Try again later.");
   let days, payload;
-  try { payload = await body(req); days = readHealthUpload(payload); } catch (e) { return fail(400, e.message); }
+  try { payload = await body(req); } catch (e) { return fail(400, e.message); }
+  // TEMPORARY: the Shortcut's filter test, how many samples each filter let through (counts only, no values)
+  const diag = payload && typeof payload === "object" ? Object.keys(payload).filter(k => k.startsWith("diag_")) : [];
+  if (diag.length) {
+    console.log("filter test:", diag.map(k => k.slice(5) + "=" + String(payload[k] || "").split(/\r?\n/).filter(Boolean).length).join(" "));
+    return json({ ok: true, days: 0 });
+  }
+  try { days = readHealthUpload(payload); } catch (e) { return fail(400, e.message); }
   // Diagnostics while the Shortcut is new: the SHAPE of each field (line count, first line with every digit masked
   // and every letter masked except in units), never the values, dates or device names.
   if (payload && typeof payload === "object") {
