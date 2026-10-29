@@ -126,6 +126,15 @@ export function mergeDropOverlaps(samples, order = defaultOrder(samples)) {
   }
   return total;
 }
+// Another: the day cut into stretches of `size` minutes; in each, only the highest-priority device with any sample
+// starting there counts (all its samples there), lower ones only in stretches it left empty.
+export function mergeBuckets(samples, order, size) {
+  const pri = Object.fromEntries(order.map((s, i) => [s, i])), best = new Map();
+  for (const s of samples) { const k = Math.floor(s.a / size); if (!(best.get(k) <= pri[s.src])) best.set(k, pri[s.src]); }
+  let total = 0;
+  for (const s of samples) if (best.get(Math.floor(s.a / size)) === pri[s.src]) total += s.v;
+  return total;
+}
 // TEMPORARY (2026-10-29): every candidate total for a v5 day, for the upload log, to find which one the Health app
 // shows. Remove once chosen.
 export function dayCandidates(p, field = "steps") {
@@ -157,6 +166,7 @@ export function dayCandidates(p, field = "steps") {
       const order = [...perm, ...names.slice(3)], key = perm.map(n => names.indexOf(n) + 1).join("");
       out["drop" + key] = Math.round(mergeDropOverlaps(samples, order));
       out["prorata" + key] = Math.round(mergeLikeHealth(samples, order));
+      for (const size of [5, 15, 30, 60]) out[`m${size}_${key}`] = Math.round(mergeBuckets(samples, order, size));
     }
   }
   return out;
