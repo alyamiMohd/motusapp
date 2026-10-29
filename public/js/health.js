@@ -87,10 +87,13 @@ const toKg = (v, unit) => { const u = UNIT.find(([re]) => re.test(String(unit ||
 // each device is added up and the busiest one counts.
 const toKcal = (n, u) => (/^(kj|كج)/i.test(String(u || "").trim()) ? n / 4.184 : n);
 const RANK = s => (/watch/i.test(s) ? 0 : /iphone/i.test(s) ? 1 : 2);
-export function mergeLikeHealth(samples) {      // [{ a, b (minutes), v, src }] -> total
+function defaultOrder(samples) {
   const busy = {};
   for (const s of samples) busy[s.src] = (busy[s.src] || 0) + s.v;
-  const order = Object.keys(busy).sort((x, y) => RANK(x) - RANK(y) || busy[y] - busy[x]);
+  return Object.keys(busy).sort((x, y) => RANK(x) - RANK(y) || busy[y] - busy[x]);
+}
+// order: device names, highest priority first (default: Watch, iPhone, others; ties the busier first)
+export function mergeLikeHealth(samples, order = defaultOrder(samples)) {      // [{ a, b (minutes), v, src }] -> total
   const pri = Object.fromEntries(order.map((s, i) => [s, i]));
   const spans = samples.filter(s => s.b > s.a).sort((x, y) => x.a - y.a), points = samples.filter(s => s.b <= s.a);
   const cuts = [...new Set(spans.flatMap(s => [s.a, s.b]))].sort((x, y) => x - y);
@@ -112,17 +115,14 @@ export function mergeLikeHealth(samples) {      // [{ a, b (minutes), v, src }] 
 }
 // Another reading of Health's rule: devices in priority order, and a sample of a lower one counts only if it touches
 // no sample already taken from a higher one (dropped whole, not in part).
-export function mergeDropOverlaps(samples) {
-  const busy = {};
-  for (const s of samples) busy[s.src] = (busy[s.src] || 0) + s.v;
-  const order = Object.keys(busy).sort((x, y) => RANK(x) - RANK(y) || busy[y] - busy[x]);
+export function mergeDropOverlaps(samples, order = defaultOrder(samples)) {
   const taken = [];
   let total = 0;
   for (const src of order) {
     const mine = samples.filter(s => s.src === src);
     const ok = mine.filter(s => !taken.some(t => s.a < Math.max(t.b, t.a + 1e-9) && t.a < Math.max(s.b, s.a + 1e-9)));
     for (const s of ok) total += s.v;
-    taken.push(...mine);                                  // the whole device, so its own samples don't block each other
+    taken.push(...ok);                                    // after the device, so its own samples don't block each other
   }
   return total;
 }
@@ -147,8 +147,18 @@ export function dayCandidates(p, field = "steps") {
   for (const s of samples) bySrc[s.src] = (bySrc[s.src] || 0) + s.v;
   out.max = Math.round(Math.max(0, ...Object.values(bySrc)));
   out.watch = Math.round(samples.filter(s => RANK(s.src) === 0).reduce((t, s) => t + s.v, 0));
-  out.devices = Object.values(bySrc).map(Math.round).sort((x, y) => y - x).join("+");
-  if (out.variant !== "none") { out.prorata = Math.round(mergeLikeHealth(samples)); out.drop = Math.round(mergeDropOverlaps(samples)); }
+  // devices numbered by total, busiest first, with their kind only (never the name)
+  const names = Object.keys(bySrc).sort((x, y) => bySrc[y] - bySrc[x]);
+  out.devices = names.map((n, i) => `${i + 1}:${Math.round(bySrc[n])}:${["watch", "iphone", "other"][RANK(n)]}`).join(" ");
+  if (out.variant !== "none") {
+    // every priority order of the (up to 3 busiest) devices, the rest after them
+    const top = names.slice(0, 3), perms = a => (a.length < 2 ? [a] : a.flatMap((x, i) => perms([...a.slice(0, i), ...a.slice(i + 1)]).map(r => [x, ...r])));
+    for (const perm of perms(top)) {
+      const order = [...perm, ...names.slice(3)], key = perm.map(n => names.indexOf(n) + 1).join("");
+      out["drop" + key] = Math.round(mergeDropOverlaps(samples, order));
+      out["prorata" + key] = Math.round(mergeLikeHealth(samples, order));
+    }
+  }
   return out;
 }
 // "yyyy-MM-dd HH:mm[:ss]" -> minutes, quickly: a day's thousand samples share one date, converted (Hijri too) once
