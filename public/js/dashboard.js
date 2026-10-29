@@ -4,7 +4,7 @@
 import { prefs, today, add, weekStart, weekAvg, avgRange, workoutsBetween, label, dayMonth, NO, esc, int, one,
          unit, toDisp, DAY_LETTERS, DAY_SHORT, dow } from "./core.js";
 
-let days = {}, mine = true;   // mine: my own dashboard, so my planned training days show too
+let days = {}, mine = true, askDays = false;   // mine: my own dashboard, so my planned training days show too
 
 const M = [
   { k: "sleep_hours", name: "Sleep", f: one, met: v => v >= prefs.sleep },
@@ -26,7 +26,9 @@ function weekStrip(ws) {        // first day -> last day of the week, filled on 
   }).join("");
   return `<div class="wide"><div class="weekhead"><small>Workout days</small>` +
     `<span class="legend"><span><i style="background:var(--green)"></i>trained</span>${mine ? '<span><i style="background:var(--gray)"></i>planned</span>' : ""}</span></div>` +
-    `<div class="week" role="img" aria-label="Workout days this week: green trained, gray planned">${dots}</div></div>`;
+    (askDays    // training days not picked yet: the strip stays blurred under one link to Standards
+      ? `<div class="daysask"><div class="week" aria-hidden="true">${dots}</div><a class="btn small" href="profile.html#std">Set training days</a></div></div>`
+      : `<div class="week" role="img" aria-label="Workout days this week: green trained, gray planned">${dots}</div></div>`);
 }
 
 function lastWeekLine(ws) {     // last week's averages; steps and weight also show the change vs the week before
@@ -104,8 +106,8 @@ function chart(m) {
   return div;
 }
 
-export function drawDashboard(data, { own = true } = {}) {
-  days = data.days || {}; mine = own;
+export function drawDashboard(data, { own = true, askDays: ask = false } = {}) {
+  days = data.days || {}; mine = own; askDays = ask && !prefs.daysSet;
   summary(); table();
   document.getElementById("charts").replaceChildren(...M.map(chart));
 }

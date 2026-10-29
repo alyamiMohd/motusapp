@@ -11,6 +11,8 @@ function readPrefs() {
   const p = { ...DEFAULTS, days: [...DEFAULTS.days] };
   try { Object.assign(p, JSON.parse(localStorage.getItem(PREFS_KEY) || "{}")); } catch (e) {}
   if (!Array.isArray(p.days)) p.days = [...DEFAULTS.days];
+  // daysSet: the person picked their training days (Home blurs the week strip until then)
+  if (typeof p.daysSet !== "boolean") p.daysSet = p.days.join() !== DEFAULTS.days.join();
   if (p.units !== "lb") p.units = "kg";
   p.weekStart = p.weekStart === 1 ? 1 : 0;
   return p;
@@ -163,6 +165,7 @@ export function initStandards(container, onChange = () => {}) {
     const b = e.target.closest("button"); if (!b) return;
     const d = +b.dataset.d;
     prefs.days = prefs.days.includes(d) ? prefs.days.filter(x => x !== d) : [...prefs.days, d].sort();
+    prefs.daysSet = true;
     savePrefs(); drawChips(); onChange();
   });
   document.getElementById("s-units").addEventListener("click", e => {
@@ -174,7 +177,7 @@ export function initStandards(container, onChange = () => {}) {
     prefs.weekStart = +b.dataset.v; savePrefs(); fill(); onChange();
   });
   document.getElementById("reset").addEventListener("click", () => {
-    Object.assign(prefs, { ...DEFAULTS, days: [...DEFAULTS.days] });
+    Object.assign(prefs, { ...DEFAULTS, days: [...DEFAULTS.days], daysSet: false });
     savePrefs(); fill(); onChange();
   });
   fill();

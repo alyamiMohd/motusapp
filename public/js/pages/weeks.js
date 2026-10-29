@@ -1,8 +1,9 @@
 // Data (weeks.html): one row per completed week, newest first, with a CSV download of the whole history.
-import { prefs, add, dayMonth, one, int, unit, toDisp, initNav, download } from "../core.js";
+import { prefs, today, add, dayMonth, one, int, unit, toDisp, initNav, download } from "../core.js";
 import { getData } from "../store.js";
 import { buildWeeks } from "../stats.js";
 import { autoRefresh } from "../account.js";
+import { generateDemo } from "../demo.js";
 
 const SHOWN = 12, NODATA = '<span class="no" title="No data">–</span>';
 let data, weeks = [], showAll = false;
@@ -43,12 +44,17 @@ function csv() {
 
 document.getElementById("more").onclick = () => { showAll = !showAll; render(); };
 document.getElementById("csv").onclick = () => download("motus-weeks.csv", csv(), "text/csv");
+// Without your own data (signed out, or signed in with nothing yet) the page is locked: a blurred sample under
+// one button. Your data unlocks it.
 function show() {
   data = getData();
+  const locked = !!(data.demo || data.empty);
+  if (data.empty) data = { ...generateDemo(today), demo: true };
   render();
-  const el = document.getElementById("banner");
-  el.innerHTML = data.demo ? '<b>Demo</b> · <a href="connect.html">Sign in</a> to see yours.' : 'No data yet · <a href="connect.html">Connect your apps</a>';
-  el.hidden = !data.demo && !data.empty;
+  document.getElementById("board").classList.toggle("locked", locked);
+  document.getElementById("unlock").hidden = !locked;
+  for (const id of ["table", "more", "csv"]) document.getElementById(id).setAttribute("aria-hidden", String(locked));
+  document.getElementById("banner").hidden = true;
 }
 initNav("weeks");
 show();

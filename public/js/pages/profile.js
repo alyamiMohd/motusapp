@@ -122,6 +122,7 @@ parts.forEach(d => d.addEventListener("toggle", () => { if (d.open) parts.forEac
 
 initNav("profile");
 initStandards($("std"));
+if (location.hash === "#std") { $("p-std").open = true; setTimeout(() => $("p-std").scrollIntoView({ block: "start" }), 0); }   // from Home's "Set training days"
 function signedIn(on) {
   $("out").hidden = on;
   for (const id of ["in", "p-friends", "p-int", "p-edit", "p-privacy", "p-acct"]) $(id).hidden = !on;
