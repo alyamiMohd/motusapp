@@ -123,16 +123,24 @@ function fromShortcut(p) {
     if (w && n != null && (!weights[w.date] || w.mins >= weights[w.date][0])) weights[w.date] = [w.mins, toKg(n, unit)];
   }
   for (const [d, [, kg]] of Object.entries(weights)) put(d, "weight_kg", Math.round(kg * 10) / 10);
-  const sleep = {};                                   // day -> source -> minutes; the busiest source wins (iPhone + Watch)
+  // day -> source -> asleep intervals; the busiest source wins (iPhone + Watch). Within a source, overlapping time
+  // counts once: Shortcuts gives no source for sleep on the owner's iPhone, so a Watch and a ring recording the same
+  // night arrive as one source, and adding them up made 11-hour nights.
+  const sleep = {};
   for (const [s, e, value, source] of lines(p.sleep)) {
     const a = when(s), b = when(e);
     if (!a || !b || NOT_ASLEEP.test(value || "")) continue;
-    const mins = b.mins - a.mins;
-    if (mins <= 0 || mins >= 24 * 60) continue;
+    if (b.mins - a.mins <= 0 || b.mins - a.mins >= 24 * 60) continue;
     const day = sleep[sleepDay(b)] || (sleep[sleepDay(b)] = {});
-    day[source || "?"] = (day[source || "?"] || 0) + mins;
+    (day[source || "?"] || (day[source || "?"] = [])).push([a.mins, b.mins]);
   }
-  for (const [d, bySrc] of Object.entries(sleep)) put(d, "sleep_hours", Math.round(Math.max(...Object.values(bySrc)) / 60 * 100) / 100);
+  const covered = spans => {
+    let total = 0, end = -Infinity;
+    for (const [a, b] of spans.sort((x, y) => x[0] - y[0])) { if (b > end) { total += b - Math.max(a, end); end = b; } }
+    return total;
+  };
+  for (const [d, bySrc] of Object.entries(sleep))
+    put(d, "sleep_hours", Math.round(Math.max(...Object.values(bySrc).map(covered)) / 60 * 100) / 100);
   return days;
 }
 

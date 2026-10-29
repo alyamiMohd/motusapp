@@ -46,22 +46,24 @@ const act = (id, params) => ({ WFWorkflowActionIdentifier: "is.workflow.actions.
 const uuidOf = a => a.WFWorkflowActionParameters.UUID;
 const setVar = (name, ref) => act("setvariable", { WFInput: attach(ref), WFVariableName: name });
 
-function ifHasInput(body, otherwise) {   // If Shortcut Input has any value … [Otherwise …] End If
+function ifHasValue(ref, body, otherwise) {   // If <ref> has any value … [Otherwise …] End If
   const g = uid();
   return [
     act("conditional", { GroupingIdentifier: g, WFCondition: 100, WFControlFlowMode: 0,
-      WFInput: { Type: "Variable", Variable: attach(INPUT) } }),
+      WFInput: { Type: "Variable", Variable: attach(ref) } }),
     ...body,
     ...(otherwise ? [act("conditional", { GroupingIdentifier: g, WFControlFlowMode: 1 }), ...otherwise] : []),
     act("conditional", { GroupingIdentifier: g, WFControlFlowMode: 2, UUID: uid() }),
   ];
 }
+const ifHasInput = (body, otherwise) => ifHasValue(INPUT, body, otherwise);
 
 // source: a variable holding one source's name. "Source is" is a picker of the phone's own sources and fails at run
 // time when a variable fills it (seen on the owner's iPhone, 2026-10-29), so the name is matched as text instead:
 // begins with it AND ends with it, which only the name itself does in practice ("contains" would also take
 // "Mo's iPhone" for "iPhone").
-function findSamples(label, days, groupByDay, fillMissing = false, source) {
+// newest: only the newest N samples (Latest First), for looking up sources without reading a month of samples
+function findSamples(label, days, groupByDay, fillMissing = false, source, newest) {
   const p = {
     UUID: uid(),
     WFContentItemFilter: {
@@ -80,9 +82,9 @@ function findSamples(label, days, groupByDay, fillMissing = false, source) {
       WFSerializationType: "WFContentPredicateTableTemplate",
     },
     WFContentItemSortProperty: "Start Date",
-    WFContentItemSortOrder: "Oldest First",
-    WFContentItemLimitEnabled: false,
-    WFContentItemLimitNumber: 20,
+    WFContentItemSortOrder: newest ? "Latest First" : "Oldest First",
+    WFContentItemLimitEnabled: !!newest,
+    WFContentItemLimitNumber: newest || 20,
     WFHKSampleFilteringFillMissing: fillMissing,
   };
   if (groupByDay) p.WFHKSampleFilteringGroupBy = "Day";
@@ -133,11 +135,14 @@ function healthBlock(varName, label, days, groupByDay, fields, pattern, fillMiss
 // The sources (iPhone, Watch, ring, apps) with samples of this type in the window, each once, in the variable
 // sourcesVar: their names joined into {"a":1,"b":1} and read back as a dictionary, whose keys can't repeat. Quotes and
 // backslashes in a name are escaped first so the JSON always reads. The names stay on the phone.
+// Only the newest SOURCE_SAMPLES samples are looked at: the 30-day run stopped here on the owner's iPhone (2026-10-29)
+// while 2 days (a few hundred samples) ran; this many still reaches back about a week for a phone, a watch and a ring.
+const SOURCE_SAMPLES = 600;
 const SEP = "␞";                     // joins the names before escaping; no device is called that
 const replace = (input, find, by) => act("text.replace", { UUID: uid(), WFInput: text(input), WFReplaceTextFind: find,
   WFReplaceTextReplace: text(by) });
 function sourcesBlock(label, days, sourcesVar) {
-  const find = findSamples(label, days, false);
+  const find = findSamples(label, days, false, false, undefined, SOURCE_SAMPLES);
   const src = act("properties.health.quantity", { UUID: uid(), CustomOutputName: "Source", WFContentItemPropertyName: "Source",
     WFInput: attach(out(uuidOf(find), "Health Samples")) });
   const joined = act("text.combine", { UUID: uid(), WFTextSeparator: "Custom", WFTextCustomSeparator: SEP,
@@ -163,7 +168,8 @@ function perSourceBlock(varName, label, days, fields) {
   return [
     ...sourcesBlock(label, days, sourcesVar),
     act("repeat.each", { GroupingIdentifier: g, WFControlFlowMode: 0, UUID: uid(), WFInput: attach(named(sourcesVar)) }),
-    find, ...sampleLines(find, fields, DAY, "Repeat Item 2", [named("Repeat Index")]),
+    // a sample without a source gives an empty name, and a text filter can't match on nothing
+    ...ifHasValue(named("Repeat Item"), [find, ...sampleLines(find, fields, DAY, "Repeat Item 2", [named("Repeat Index")])]),
     act("repeat.each", { GroupingIdentifier: g, WFControlFlowMode: 2, UUID: endUUID }),
     combine, setVar(varName, out(uuidOf(combine), "Combined Text")),
   ];

@@ -204,6 +204,13 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
   check("v3: food (filling missing days), steps and active energy are day totals; weight, sleep and the source lookups raw",
     grouped === "Day+,-,-,-,Day,-,Day,Day+,-,-,-,Day,-,Day", grouped);
   const lists = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("setvariable")).map(a => a.WFWorkflowActionParameters.WFVariableName);
+  const lookups = finds.filter(p => !p.WFHKSampleFilteringGroupBy && p.WFContentItemLimitEnabled);
+  check("v3: the source lookups read only the newest 600 samples; nothing else is limited",
+    lookups.length === 4 && lookups.every(p => p.WFContentItemLimitNumber === 600 && p.WFContentItemSortOrder === "Latest First") &&
+    finds.filter(p => p.WFContentItemLimitEnabled).length === 4);
+  const skips = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("conditional") && a.WFWorkflowActionParameters.WFControlFlowMode === 0 &&
+    a.WFWorkflowActionParameters.WFInput.Variable.Value.VariableName === "Repeat Item").length;
+  check("v3: a source with an empty name is skipped", skips === 4, skips);
   check("v3: steps and energy each find their own sources, with quotes and backslashes escaped before the JSON is read",
     lists.filter(n => n === "Steps Sources").length === 2 && lists.filter(n => n === "Active Sources").length === 2 &&
     acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("text.replace") && a.WFWorkflowActionParameters.WFReplaceTextFind === '"').length === 4);
@@ -249,6 +256,10 @@ check("upload reader alone: nothing usable -> error", (() => { try { readHealthU
     active: "2026-10-27|300|kcal|1\n2026-10-27|1674|kJ|2\n2026-10-27|0|kcal|3\n2026-10-26|0|kcal|1\n2026-10-26|0|kcal|2",
     calories: "", weight: "", sleep: "" });
   check("v3: the busiest source each day wins (5,500 of 5,000 / 5,500 / 4,200), Hijri day converted", v3["2026-10-27"].steps === 5500 && v3["2026-10-28"].steps === 900);
+  const night = readHealthUpload({ v: "3", sleep: ["2026-10-26 23:00|2026-10-27 06:00|Core|", "2026-10-26 23:30|2026-10-27 06:30|Deep|",
+    "2026-10-27 01:00|2026-10-27 02:00|REM|"].join("\n") });
+  check("sleep with no source from a Watch and a ring on the same night counts the time once (7.5 h, not 15.5 h)",
+    night["2026-10-27"].sleep_hours === 7.5, JSON.stringify(night));
   check("v3: active energy per source with kJ (1,674 kJ = 400 kcal beats 300); an all-zero day stays empty",
     v3["2026-10-27"].active_kcal === 400 && !v3["2026-10-26"], JSON.stringify(v3));
   {
