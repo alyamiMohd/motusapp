@@ -64,12 +64,12 @@
       <ol class="steps big" id="h-steps">
         <li><a class="btn" id="b-shortcut" href="shortcut.html">Add the Motus Shortcut</a><br><small>Tap <b>Add Shortcut</b>, then come back here.</small></li>
         <li><button class="btn" id="b-finish" type="button">Finish</button><br><small>Your iPhone asks to let Motus read Health: turn everything on and tap <b>Allow</b>. This first run brings in your last 30 days: keep Shortcuts open, with the screen on, until it brings you back here (about a minute).</small></li>
-        <li><b>Make it daily.</b> <small>iOS asks you to do this one yourself: in <b>Shortcuts</b> → <b>Automation</b> → <b>+</b> → <b>Time of Day</b> → a morning time, <b>Daily</b> → <b>Run Immediately</b> → <b>Next</b> → <b>Motus</b>.</small></li>
+        <li><b>That's it.</b> <small>Whenever you open Motus on this iPhone and Health hasn't been read for 12 hours, Motus runs the Shortcut and comes straight back. <b>Optional:</b> to keep it current even on days you don't open Motus, add a daily automation (Apple only lets you do this yourself): <b>Shortcuts</b> → <b>Automation</b> → <b>+</b> → <b>Time of Day</b> → a morning time, <b>Daily</b> → <b>Run Immediately</b> → <b>Next</b> → <b>Motus</b>.</small></li>
       </ol>
     </div>
     <div id="health-on" hidden>
       <p class="state" id="s-health"></p>
-      <div class="act"><button class="btn ghost" id="b-health-again" type="button">Set up again</button><button class="btn danger" id="b-health-off" type="button">Disconnect</button></div>
+      <div class="act"><button class="btn" id="b-health-now" type="button">Update now</button><button class="btn ghost" id="b-health-again" type="button">Set up again</button><button class="btn danger" id="b-health-off" type="button">Disconnect</button></div>
     </div>
     <p class="msg" id="m-live-health" role="status"></p>
   </section>

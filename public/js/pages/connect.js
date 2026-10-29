@@ -8,7 +8,7 @@ import { importMfp } from "../importers/mfp.js";
 import { fromSheetCSV, template } from "../importers/sheet.js";
 import { describe } from "../importers/csv.js";
 import { checkAccount, cachedMe, sendCode, signIn, signOut, deleteAccount, pull, pushSource, removeRemote,
-         connectHevy, syncHevy, disconnect, healthSetupLink, SHORTCUT_URL, HEVY_KEY_PAGE } from "../account.js";
+         connectHevy, syncHevy, disconnect, healthSetupLink, runHealthNow, SHORTCUT_URL, HEVY_KEY_PAGE } from "../account.js";
 
 const $ = id => document.getElementById(id);
 const dateText = iso => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -108,6 +108,12 @@ async function finishHealth() {
   busy(["b-finish", "b-health-again"], false);
 }
 $("b-finish").onclick = finishHealth;
+// runs the Motus Shortcut now; Shortcuts comes back here with ?health=updated (or cancelled / failed)
+$("b-health-now").onclick = () => {
+  if (!onIPhone) { say("live-health", "Open Motus on your iPhone to update from Apple Health.", "bad"); return; }
+  say("live-health", "Opening Shortcuts…");
+  runHealthNow(location.origin + location.pathname);
+};
 $("b-health-again").onclick = () => {
   if (!confirm("Set up the Shortcut again? The one on your iPhone stops working until you tap Finish there.")) return;
   $("health-off").dataset.redo = "1"; $("health-on").hidden = true; $("health-off").hidden = false;
@@ -258,10 +264,13 @@ refresh();
 checkAccount().then(async r => {
   available = r.available;
   if (r.me) await pull().catch(() => {});
-  if (new URLSearchParams(location.search).get("health") === "done") {
-    history.replaceState(null, "", location.pathname + "#live-health");
-    say("live-health", "Apple Health is connected. Last step: make it daily (step 3).", "ok");
+  const back = new URLSearchParams(location.search).get("health");
+  if (back) history.replaceState(null, "", location.pathname + "#live-health");
+  if (back === "done") {
+    say("live-health", "Apple Health is connected. From now on Motus updates it by itself whenever you open Motus on this iPhone.", "ok");
     $("health-off").dataset.redo = "1"; $("health-off").hidden = false; $("health-on").hidden = true;
   }
+  if (back === "updated") say("live-health", "Updated from Apple Health.", "ok");
+  if (back === "failed") say("live-health", "The Shortcut couldn't send this time (no connection, perhaps). Tap Update now to try again.", "bad");
   refresh();
 });

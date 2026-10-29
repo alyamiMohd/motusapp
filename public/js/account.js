@@ -82,9 +82,32 @@ export async function pull() {
   return true;
 }
 
-// Every page: refresh from the account when signed in. Quiet when offline or signed out.
+// Every page: refresh from the account when signed in. Quiet when offline or signed out. Then, on an iPhone, bring
+// Apple Health up to date if it's due (below).
 export async function autoRefresh() {
-  try { return await pull(); } catch (e) { return false; }
+  let changed = false;
+  try { changed = await pull(); } catch (e) {}
+  if (new URLSearchParams(location.search).has("health")) history.replaceState(null, "", location.pathname + location.hash);
+  else runHealthIfDue();
+  return changed;
+}
+
+// Apple Health without an automation: Apple lets no page, link or Shortcut create one, so when Motus is opened on an
+// iPhone and the Shortcut hasn't sent anything for 12 hours, Motus runs it through Shortcuts' x-callback-url, which
+// comes back here when it's done (?health=updated), cancelled or failed. At most once every 30 minutes, so a run that
+// fails or is cancelled can't loop. The daily automation stays an option for numbers that are current even unopened.
+export const ON_IPHONE = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const DUE_AFTER = 12 * 3600e3, AGAIN_AFTER = 30 * 60e3, TRIED = "motusapp-health-run";
+export function healthRunLink(back = location.origin + location.pathname) {
+  const to = s => encodeURIComponent(back + (back.includes("?") ? "&" : "?") + "health=" + s);
+  return `shortcuts://x-callback-url/run-shortcut?name=Motus&x-success=${to("updated")}&x-cancel=${to("cancelled")}&x-error=${to("failed")}`;
+}
+export function runHealthNow(back) { set(TRIED, String(Date.now())); location.href = healthRunLink(back); }
+function runHealthIfDue() {
+  const h = (cachedMe() || {}).health;
+  if (!ON_IPHONE || !h || !h.connected || Date.now() - (h.last_upload || 0) < DUE_AFTER) return;
+  if (Date.now() - (+get(TRIED) || 0) < AGAIN_AFTER) return;
+  runHealthNow();
 }
 
 // A file imported on this device while signed in also goes to the account.
