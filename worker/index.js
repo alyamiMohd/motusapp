@@ -193,6 +193,21 @@ async function upload(req, env) {
     console.log("upload shape:", JSON.stringify(shape), "| hijri exact:", HIJRI_EXACT);
     // TEMPORARY: candidate step totals for this day (the owner asked for Health's exact numbers)
     if (+payload.v >= 5 && typeof payload.day === "string") console.log("steps", payload.day.slice(0, 10), JSON.stringify(stepCandidates(payload)));
+    // TEMPORARY, with the owner's OK: the day's raw step readings, to work out Health's rule offline. Sources as
+    // their kind and a number only (never the name); each reading as [source, start, end, steps] in minutes of the day.
+    if (+payload.v >= 5 && typeof payload.day === "string") {
+      const col = k => String(payload[k] || "").split(/\r?\n/), names = [], kinds = [];
+      const src = col("steps_sources"), st = col("steps_starts"), en = col("steps_ends"), rows = [];
+      col("steps_values").forEach((v, i) => {
+        const name = (src[i] || "").trim(), m = t => { const x = /(\d{2}):(\d{2}):(\d{2})/.exec(t || ""); return x ? +x[1] * 60 + +x[2] + +x[3] / 60 : null; };
+        if (!names.includes(name)) { names.push(name); kinds.push(name === "Health" ? "health" : /watch/i.test(name) ? "watch" :
+          /iphone/i.test(name) || name === String(payload.device || "").trim() ? "phone" : "app"); }
+        const a = m(st[i]), b = m(en[i]);
+        if (a != null && +v >= 0) rows.push([names.indexOf(name), +a.toFixed(2), b == null ? null : +b.toFixed(2), +v,
+          (en[i] || "").slice(0, 10) === (st[i] || "").slice(0, 10) ? 0 : 1]);
+      });
+      console.log("raw", payload.day.slice(0, 10), JSON.stringify({ kinds, rows }));
+    }
   }
   if (!Object.keys(days).length) {
     // v3 sends in parts; a part with nothing in the window (no energy recorded in 2 days, say) is fine
