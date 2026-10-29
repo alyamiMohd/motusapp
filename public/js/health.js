@@ -80,14 +80,16 @@ const toKg = (v, unit) => { const u = UNIT.find(([re]) => re.test(String(unit ||
 
 // v4/v5: one day of single samples, values and their devices in parallel columns, one line per sample. The device
 // names are used only here, never stored.
-// v5 adds each sample's start time, and then the devices are merged the way the Health app merges them, hour by hour:
-// in each clock hour only the highest-priority source with any sample starting in that hour counts, so a lower one
-// (HUAWEI Health below the phone, say) only fills hours the higher one left empty. Found on the owner's phone,
-// 2026-10-29: this gives Health's own 6,632 / 4,485 (Health 4,491) / 4,481, where cutting at every sample's start and
-// end (7,524 / 7,780 / 4,563) and dropping only overlapping samples (6,632 / 6,767 / 4,508) don't.
+// v5 adds each sample's start (and for steps its end), and the sources are merged the way the Health app merges them:
+// the day is cut into quarter hours on the clock; each sample's steps are spread over the quarters it spans; in each
+// quarter only the highest-priority source with steps there counts. Found on the owner's phone, 2026-10-29, from the
+// raw readings of 12 days against their Health chart: off by +4 -14 +4 +67 -75 -2 -7 -8 -15 +1 +10 +4 steps (the
+// chart itself is read to about 50), where 14- or 16-minute blocks, whole hours, the busiest source, or cutting at
+// every sample's edges are off by hundreds to thousands on some days. Without end times (energy), a sample counts in
+// the quarter it starts in; without any times (v4), each source is added up and the busiest counts.
 // The order is Health's default: its own entries ("Health"), Apple Watches, phones (a name with "iPhone", or the
 // phone the Shortcut runs on, which it sends as `device`: the owner's is called "iMone"), then apps; within the same
-// kind the busier source that day first. Without usable times (v4), each source is added up and the busiest counts.
+// kind the busier source that day first.
 const toKcal = (n, u) => (/^(kj|كج)/i.test(String(u || "").trim()) ? n / 4.184 : n);
 const kind = (s, phone) => (s === "Health" ? 0 : /watch/i.test(s) ? 1 : /iphone/i.test(s) || (phone && s === phone) ? 2 : 3);
 export function healthOrder(samples, phone) {
@@ -95,55 +97,27 @@ export function healthOrder(samples, phone) {
   for (const s of samples) busy[s.src] = (busy[s.src] || 0) + s.v;
   return Object.keys(busy).sort((x, y) => kind(x, phone) - kind(y, phone) || busy[y] - busy[x]);
 }
-export function mergeLikeHealth(samples, phone) {          // [{ a (start, in minutes), v, src }] -> the day's total
-  const pri = Object.fromEntries(healthOrder(samples, phone).map((s, i) => [s, i])), best = new Map();
-  for (const s of samples) { const h = Math.floor(s.a / 60); if (!(best.get(h) <= pri[s.src])) best.set(h, pri[s.src]); }
-  let total = 0;
-  for (const s of samples) if (best.get(Math.floor(s.a / 60)) === pri[s.src]) total += s.v;
-  return total;
-}
-// TEMPORARY (2026-10-29): candidate merge rules for one v5 day's steps, logged next to each other to find the one that
-// matches the owner's Health chart on all 30 days (the hourly rule matched 27-29 Oct but is 5-14% off on some days).
-// Totals only, never names: sources show as their kind (health/watch/phone/app) and total.
-export function stepCandidates(p) {
-  const col = t => String(t || "").split(/\r?\n/), phone = String(p.device || "").trim();
-  const src = col(p.steps_sources), st = col(p.steps_starts), en = col(p.steps_ends), samples = [];
-  col(p.steps_values).forEach((v, i) => {
-    const n = num(v), a = stampMins(st[i] || ""), b = stampMins(en[i] || "");
-    if (n != null && a != null) samples.push({ v: n, src: (src[i] || "").trim() || "?", a, b: b == null ? a : Math.max(a, b) });
-  });
-  const order = healthOrder(samples, phone), pri = Object.fromEntries(order.map((s, i) => [s, i]));
-  const total = {};
-  for (const s of samples) total[s.src] = (total[s.src] || 0) + s.v;
-  const out = { sources: order.map(s => ["health", "watch", "phone", "app"][kind(s, phone)] + ":" + Math.round(total[s])).join(" ") };
-  const byStart = size => {                              // the top source with a sample starting in each stretch
-    const best = new Map();
-    for (const s of samples) { const k = Math.floor(s.a / size); if (!(best.get(k) <= pri[s.src])) best.set(k, pri[s.src]); }
-    return samples.reduce((t, s) => t + (best.get(Math.floor(s.a / size)) === pri[s.src] ? s.v : 0), 0);
+const QUARTER = 15;
+export function mergeLikeHealth(samples, phone) {          // [{ a, b (start, end in minutes), v, src }] -> the day's total
+  const pri = Object.fromEntries(healthOrder(samples, phone).map((s, i) => [s, i]));
+  const quarters = new Map();                               // quarter -> { top priority there, steps by priority }
+  const add = (q, src, part) => {
+    let e = quarters.get(q);
+    if (!e) quarters.set(q, e = { top: Infinity, by: new Map() });
+    e.top = Math.min(e.top, pri[src]);
+    e.by.set(pri[src], (e.by.get(pri[src]) || 0) + part);
   };
-  const hours = s => { const h = []; for (let k = Math.floor(s.a / 60); k <= Math.floor(Math.max(s.a, s.b - 1e-6) / 60); k++) h.push(k); return h; };
-  // a source occupies every hour its samples touch; a sample counts if its start hour isn't occupied by a higher one
-  const occ = new Map();
-  for (const s of samples) for (const k of hours(s)) if (!(occ.get(k) <= pri[s.src])) occ.set(k, pri[s.src]);
-  // each sample's steps spread over the hours it covers, and per hour only the top source present counts
-  const share = new Map(), top = new Map();
-  for (const s of samples) for (const k of hours(s)) {
-    const lo = Math.max(s.a, k * 60), hi = Math.min(Math.max(s.b, s.a), (k + 1) * 60), len = Math.max(s.b - s.a, 0);
-    const part = len > 0 ? s.v * Math.max(hi - lo, 0) / len : s.v;
-    const key = k + "|" + s.src; share.set(key, (share.get(key) || 0) + part);
-    if (!(top.get(k) <= pri[s.src])) top.set(k, pri[s.src]);
+  for (const s of samples) {
+    const b = s.b > s.a ? s.b : s.a;
+    if (b === s.a) { add(Math.floor(s.a / QUARTER), s.src, s.v); continue; }
+    for (let q = Math.floor(s.a / QUARTER); q * QUARTER < b; q++) {
+      const lo = Math.max(s.a, q * QUARTER), hi = Math.min(b, (q + 1) * QUARTER);
+      if (hi > lo) add(q, s.src, s.v * (hi - lo) / (b - s.a));
+    }
   }
-  let pro = 0;
-  for (const [key, v] of share) { const [k, s] = key.split("|"); if (top.get(+k) === pri[s]) pro += v; }
-  Object.assign(out, {
-    h60: byStart(60), m30: byStart(30), m15: byStart(15),
-    h60occ: samples.reduce((t, s) => t + (occ.get(Math.floor(s.a / 60)) === pri[s.src] ? s.v : 0), 0),
-    h60pro: pro,
-    top: total[order[0]] || 0,
-    max: Math.max(0, ...Object.values(total)),
-  });
-  for (const k of Object.keys(out)) if (typeof out[k] === "number") out[k] = Math.round(out[k]);
-  return out;
+  let total = 0;
+  for (const e of quarters.values()) total += e.by.get(e.top) || 0;
+  return total;
 }
 // "yyyy-MM-dd HH:mm[:ss]" -> minutes, quickly: a day's thousand samples share one date, converted (Hijri too) once
 const STAMP = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/;
@@ -165,9 +139,11 @@ function fromShortcutDay(p) {
       const n = num(v);
       if (n != null) samples.push({ i, v: energy ? toKcal(n, units[i]) : n, src: (sources[i] || "").trim() || "?" });
     });
-    // the start times: one line per sample (older Shortcuts sent them three ways; the second was the one that worked)
+    // the start (and end) times: one line per sample (the first v5 Shortcut sent starts three ways; "_b" worked)
     const starts = ["", "_b"].map(sfx => col(p[field + "_starts" + sfx]))
       .find(st => samples.every(s => (s.a = stampMins(st[s.i] || "")) != null));
+    const ends = col(p[field + "_ends"]);
+    if (starts) for (const s of samples) { const b = stampMins(ends[s.i] || ""); s.b = b == null ? s.a : b; }
     let best;
     if (samples.length && starts) best = mergeLikeHealth(samples, String(p.device || "").trim());
     else {

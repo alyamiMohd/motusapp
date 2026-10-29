@@ -150,7 +150,7 @@ function byDayBlock(n, post4) {
   for (const [key, label] of [["steps", "Steps"], ["active", "Active Calories"]]) {
     // "in the last n+1 days" too: a plain bound Health can use before the day's own range
     const find = findSamples(label, n + 1, false, false, [between(out(uuidOf(start), "Adjusted Date"), out(uuidOf(end), "Adjusted Date"))]);
-    // steps also send end times: TEMPORARY, to test merge rules that need them against the owner's Health numbers
+    // steps also send end times: Health spreads a sample over the quarter hours it spans (see mergeLikeHealth)
     const [acts, cols] = columns(find, [[key + "_values", "Value"], [key + "_sources", "Source"],
       ...(key === "active" ? [[key + "_units", "Unit"]] : []), [key + "_starts", "Start Date", STAMP],
       ...(key === "steps" ? [[key + "_ends", "End Date", STAMP]] : [])]);

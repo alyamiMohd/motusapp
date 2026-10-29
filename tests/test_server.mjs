@@ -271,25 +271,29 @@ check("upload reader alone: nothing usable -> error", (() => { try { readHealthU
   check("v4: energy per device with kJ per sample (200 + 300 beats 150); an empty day is empty",
     d4["2026-10-28"].active_kcal === 500 && !Object.keys(readHealthUpload({ v: "4", day: "2026-10-27", steps_values: "", steps_sources: "" })).length);
   {
-    // v5: start times too, merged like the Health app, hour by hour: in each hour only the top source with steps counts
+    // v5: merged like the Health app: quarter hours on the clock, each sample spread over the quarters it spans, and in
+    // each quarter only the top source with steps there counts. rows: [steps, source, start, end?]
     const day = (rows, extra = {}) => readHealthUpload({ v: "5", day: "2026-10-28",
       steps_values: rows.map(r => r[0]).join("\n"), steps_sources: rows.map(r => r[1]).join("\n"),
-      steps_starts: rows.map(r => "2026-10-28 " + r[2]).join("\n"), ...extra });
-    const walk = [[4500, "Mohd’s Apple Watch", "09:00:00"], [3000, "Mo’s iPhone", "09:05:00"], [2000, "Mo’s iPhone", "18:00:00"]];
-    check("v5: the same walk counts once, from the Watch; the iPhone fills the evening hour the Watch left empty (4,500 + 2,000)",
-      day(walk)["2026-10-28"].steps === 6500, JSON.stringify(day(walk)));
-    check("v5: in an hour the Watch has steps, the iPhone's don't count, even late in that hour; the next hour's do (4,500 + 100)",
-      day([[4500, "Apple Watch", "09:00:00"], [1200, "iPhone", "09:59:00"], [100, "iPhone", "10:00:00"]])["2026-10-28"].steps === 4600);
-    check("v5: an app (HUAWEI Health) only fills hours the phone left empty; the phone called iMone is known by `device`",
-      day([[300, "iMone", "08:10:00"], [900, "HUAWEI Health: Global", "08:20:00"], [200, "HUAWEI Health: Global", "22:00:00"]],
-        { device: "iMone" })["2026-10-28"].steps === 500 &&
-      day([[300, "iMone", "08:10:00"], [900, "HUAWEI Health: Global", "08:20:00"], [200, "HUAWEI Health: Global", "22:00:00"]])["2026-10-28"].steps === 1100);
+      steps_starts: rows.map(r => "2026-10-28 " + r[2]).join("\n"),
+      ...(rows.some(r => r[3]) ? { steps_ends: rows.map(r => r[3] ? "2026-10-28 " + r[3] : "").join("\n") } : {}), ...extra });
+    const walk = [[4500, "Mohd’s Apple Watch", "09:00:00", "10:00:00"], [3000, "Mo’s iPhone", "09:05:00", "10:05:00"],
+                  [2000, "Mo’s iPhone", "18:00:00", "18:30:00"]];
+    check("v5: the same walk counts once, from the Watch; the iPhone counts in the quarters the Watch left empty: its last 5 minutes " +
+      "(3,000 × 5/60 = 250) and the evening (4,500 + 250 + 2,000)", day(walk)["2026-10-28"].steps === 6750, JSON.stringify(day(walk)));
+    check("v5: quarters are clock quarters: an iPhone reading in the Watch's quarter is dropped, one in the next quarter counts (1,000 + 300)",
+      day([[1000, "Apple Watch", "09:00:00", "09:15:00"], [200, "iPhone", "09:10:00"], [300, "iPhone", "09:20:00"]])["2026-10-28"].steps === 1300);
+    const huawei = [[300, "iMone", "08:10:00", "08:20:00"], [900, "HUAWEI Health: Global", "08:10:00", "08:40:00"], [200, "HUAWEI Health: Global", "22:00:00"]];
+    check("v5: an app (HUAWEI Health) only fills quarters the phone left empty; the phone called iMone is known by `device` " +
+      "(150 + 150 from the phone, 300 + 200 from HUAWEI)", day(huawei, { device: "iMone" })["2026-10-28"].steps === 800 &&
+      day(huawei)["2026-10-28"].steps === 1100, JSON.stringify(day(huawei, { device: "iMone" })));
     check("v5: entries made in the Health app itself come first",
-      day([[5000, "Health", "12:00:00"], [800, "Apple Watch", "12:30:00"]])["2026-10-28"].steps === 5000);
+      day([[5000, "Health", "12:00:00"], [800, "Apple Watch", "12:05:00"]])["2026-10-28"].steps === 5000);
     const bad = day(walk, { steps_starts: "Oct 28, 2026 at 9:00 AM\n\n" });
     check("v5: times that didn't arrive as lines: the busiest source counts, as in v4 (5,000)", bad["2026-10-28"].steps === 5000, JSON.stringify(bad));
-    const viaB = day(walk, { steps_starts: "", steps_starts_b: walk.map(r => "2026-10-28 " + r[2]).join("\n") });
-    check("v5: start times from the first v5 Shortcut (steps_starts_b) are read too", viaB["2026-10-28"].steps === 6500);
+    const viaB = day(walk.map(r => r.slice(0, 3)), { steps_starts: "", steps_starts_b: walk.map(r => "2026-10-28 " + r[2]).join("\n") });
+    check("v5: without end times (energy, the first v5 Shortcut's steps_starts_b) a reading counts in the quarter it starts in",
+      viaB["2026-10-28"].steps === 6500, JSON.stringify(viaB));
     const many = [];
     for (let i = 0; i < 1500; i++) many.push([20 + (i % 30), ["Apple Watch", "iPhone", "Ultrahuman"][i % 3],
       `${String(6 + (i % 16)).padStart(2, "0")}:${String(i % 60).padStart(2, "0")}:00`]);
