@@ -192,37 +192,44 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
   const keys = posts.map(p => p.WFJSONValues.Value.WFDictionaryFieldValueItems.map(i => i.WFKey.Value.string).join("+")).join();
   const labels = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("filter.health.quantity"))
     .map(a => a.WFWorkflowActionParameters.WFContentItemFilter.Value.WFActionParameterFilterTemplates[0].Values.Enumeration.Value);
-  const PARTS = "v+calories+weight+sleep,v+steps,v+active";
-  check("Shortcut sends the fields the server reads, in three parts (food, weight, sleep; steps; energy), in both runs",
+  const PARTS = "v+calories+weight+sleep,v+steps+active";
+  check("Shortcut sends the fields the server reads, in two parts (food, weight, sleep; steps and energy), in both runs",
     keys === PARTS + "," + PARTS && posts.every(p => p.WFHTTPMethod === "POST"), keys);
-  const FIFTEEN = "Dietary Calories,Weight,Sleep," + Array(6).fill("Steps").join() + "," + Array(6).fill("Active Calories").join();
-  check("Shortcut reads the five Health types, once for the first run and once for daily runs", labels.join() === FIFTEEN + "," + FIFTEEN, labels.join());
+  const NINE = "Dietary Calories,Weight,Sleep,Steps,Steps,Steps,Active Calories,Active Calories,Active Calories";
+  check("Shortcut reads the five Health types, once for the first run and once for daily runs", labels.join() === NINE + "," + NINE, labels.join());
   const finds = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("filter.health.quantity")).map(a => a.WFWorkflowActionParameters);
   const days = finds.map(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates[1].Values.Number).join();
-  check("first run reads 30 days of everything; daily runs 2 days (a week of food and weight)",
-    days === Array(15).fill(30).join() + ",7,7," + Array(13).fill(2).join(), days);
-  const grouped = finds.map(p => (p.WFHKSampleFilteringGroupBy || "-") + (p.WFHKSampleFilteringFillMissing ? "+" : "") + (p.WFContentItemInputParameter ? "<" : "")).join();
-  const SPLIT = Array(6).fill("-,Day<").join();
-  check("v3: per device group, single samples first, then day totals of just those; food fills missing days; weight and sleep raw",
-    grouped === "Day+,-,-," + SPLIT + ",Day+,-,-," + SPLIT && !finds.some(p => p.WFContentItemLimitEnabled), grouped);
-  const chained = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("filter.health.quantity") && a.WFWorkflowActionParameters.WFContentItemInputParameter);
-  check("v3: each day-total Find filters the Find right before it (its own device group)", chained.length === 12 && chained.every(a => {
-    const i = acts.indexOf(a), prev = acts[i - 1];
-    return a.WFWorkflowActionParameters.WFContentItemInputParameter.Value.OutputUUID === prev.WFWorkflowActionParameters.UUID &&
-      prev.WFWorkflowActionParameters.WFContentItemFilter.Value.WFActionParameterFilterTemplates.some(r => r.Property === "Source") &&
-      !a.WFWorkflowActionParameters.WFContentItemFilter.Value.WFActionParameterFilterTemplates.some(r => r.Property === "Source"); }));
-  const rows = finds.filter(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates.length > 2)
-    .map(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates.slice(2).map(r => r.Property + r.Operator + r.Values.String).join("&")).join();
+  check("first run: 30 days of food, weight and sleep; daily: a week of food and weight, 2 days of sleep",
+    days === "30,30,30,31,31,31,31,31,31,7,7,2,4,4,4,4,4,4", days);
+  const grouped = finds.map(p => (p.WFHKSampleFilteringGroupBy || "-") + (p.WFHKSampleFilteringFillMissing ? "+" : "")).join();
+  check("v3.6: only food is a Shortcuts day total; steps and energy are single samples, one day at a time",
+    grouped === "Day+,-,-,-,-,-,-,-,-,Day+,-,-,-,-,-,-,-,-" && !finds.some(p => p.WFContentItemLimitEnabled), grouped);
+  const counts = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("repeat.count") && a.WFWorkflowActionParameters.WFControlFlowMode === 0)
+    .map(a => a.WFWorkflowActionParameters.WFRepeatCount).join();
+  const back = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("adjustdate") && a.WFWorkflowActionParameters.WFAdjustOperation === "Subtract");
+  check("v3.6: the first run goes back 30 days, daily runs 3 (today first), each day Repeat Index days back from tomorrow",
+    counts === "30,3" && back.length === 2 && back.every(a => a.WFWorkflowActionParameters.WFDuration.Value.Magnitude.Value.VariableName === "Repeat Index"), counts);
+  const byDay = finds.filter(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates.length > 2);
+  const rows = byDay.map(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates.slice(4).map(r => r.Property + r.Operator + r.Values.String).join("&")).join();
   const G = "Source99Watch,Source99iPhone&Source999Watch,Source999Watch&Source999iPhone";
-  check("v3: steps and energy in three groups by fixed text: Watch, iPhone, everything else (no variables in filters)",
+  check("v3.6: steps and energy in three groups by fixed text: Watch, iPhone, everything else (no variables in Source filters)",
     rows === [G, G, G, G].join(), rows);
-  check("v3: each group's lines end in its number (1-3), never a device name; the upload says v 3",
+  check("v3.6: each day's Find is bounded by that day: Start Date after the day's start, and between 2000 and the day's end",
+    byDay.length === 12 && byDay.every(p => { const [, , after, between] = p.WFContentItemFilter.Value.WFActionParameterFilterTemplates;
+      return after.Operator === 2 && after.Values.Date.Value.OutputName === "Adjusted Date" && between.Operator === 1003 &&
+        between.Values.Date instanceof Date && between.Values.AnotherDate.Value.OutputName === "Adjusted Date"; }) &&
+    toPlist(wf).includes("<date>2000-01-01T00:00:00Z</date>"));
+  const sums = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("statistics") && a.WFWorkflowActionParameters.WFStatisticsOperation === "Sum").length;
+  const appends = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("appendvariable")).map(a => a.WFWorkflowActionParameters.WFVariableName);
+  check("v3.6: a group's day is summed on the phone only when it has samples, and added to Steps or Active",
+    sums === 12 && appends.filter(n => n === "Steps").length === 6 && appends.filter(n => n === "Active").length === 6);
+  check("v3.6: each line ends in its group's number (1-3), never a device name; the upload says v 3",
     post.WFJSONValues.Value.WFDictionaryFieldValueItems[0].WFValue.Value.string === "3" &&
     ["|1", "|2", "|3"].every(n => acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("gettext") &&
-      a.WFWorkflowActionParameters.WFTextActionText.Value.string.endsWith(n)).length === 4) &&
-    !JSON.stringify(wf).includes('"Property":"Source","Removable":true,"Values":{"String":{'));
+      a.WFWorkflowActionParameters.WFTextActionText.Value.string.endsWith(n)).length === 4));
   const open = (kind, mode) => ids.filter((id, i) => id.endsWith(kind) && acts[i].WFWorkflowActionParameters.WFControlFlowMode === mode).length;
-  check("Shortcut: every If and Repeat is closed", open("conditional", 0) === open("conditional", 2) && open("repeat.each", 0) === open("repeat.each", 2) && open("repeat.each", 0) === 18 && open("conditional", 1) === 1);
+  check("Shortcut: every If and Repeat is closed", open("conditional", 0) === open("conditional", 2) && open("repeat.each", 0) === open("repeat.each", 2) && open("repeat.each", 0) === 6 &&
+    open("repeat.count", 0) === 2 && open("repeat.count", 2) === 2 && open("conditional", 0) === 15 && open("conditional", 1) === 1);
   const uuids = new Set(acts.map(a => a.WFWorkflowActionParameters.UUID).filter(Boolean));
   const refs = [...JSON.stringify(wf).matchAll(/"OutputUUID":"([^"]+)"/g)].map(m => m[1]);
   check("Shortcut: every variable points at an action that exists", refs.length > 20 && refs.every(u => uuids.has(u)));

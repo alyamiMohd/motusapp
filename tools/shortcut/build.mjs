@@ -59,8 +59,7 @@ function ifHasValue(ref, body, otherwise) {   // If <ref> has any value … [Oth
 const ifHasInput = (body, otherwise) => ifHasValue(INPUT, body, otherwise);
 
 // rows: more filter rows after Type and Start Date (all must hold), such as a fixed "Source contains …"
-// from: an earlier Find whose samples this one filters ("Filter Health Samples") instead of asking Health again
-function findSamples(label, days, groupByDay, fillMissing = false, rows = [], from) {
+function findSamples(label, days, groupByDay, fillMissing = false, rows = []) {
   const p = {
     UUID: uid(),
     WFContentItemFilter: {
@@ -84,7 +83,6 @@ function findSamples(label, days, groupByDay, fillMissing = false, rows = [], fr
     WFHKSampleFilteringFillMissing: fillMissing,
   };
   if (groupByDay) p.WFHKSampleFilteringGroupBy = "Day";
-  if (from) p.WFContentItemInputParameter = attach(out(uuidOf(from), "Health Samples"));
   return act("filter.health.quantity", p);
 }
 
@@ -135,23 +133,61 @@ function healthBlock(varName, label, days, groupByDay, fields, pattern, fillMiss
 // Health app roughly does. The filters are fixed text: a Source filter filled from a variable failed ("Source is",
 // v3.0) or was silently ignored ("begins with", v3.1-3.3: every device's total came back as the sum of all) on the
 // owner's iPhone, 2026-10-29. Default names keep "iPhone" and "Apple Watch" in every language.
-// Shortcuts applies a Source filter AFTER grouping by day, to day totals whose source is every device (v3.4 put all
-// steps under "Watch" and none under "iPhone"), so each group first finds its single samples, where the filter works,
-// and a second Find makes day totals of just those. Should it hand back single samples, the lines still add up right:
-// the server sums each group's lines per day.
+// Shortcuts' day totals can't be split by device at all: a Source filter is applied AFTER grouping, to day totals
+// whose source is every device (v3.4 put all steps under "Watch" and none under "iPhone"), and grouping a list from
+// an earlier Find ignores that list and asks Health for everything again (v3.5: all three groups the same). Reading a
+// month of single samples at once is too much (the 30-day runs stopped). So the Shortcut adds up each day itself: for
+// each day and each group, Find that day's single samples (where the Source filter works), get their values and
+// Calculate Statistics → Sum. Each Find holds one day of one group, a few hundred samples at most.
 const src = (op, s) => ({ Bounded: true, Operator: op, Property: "Source", Removable: true, Values: { String: s } });
 const GROUPS = [[src(99, "Watch")], [src(99, "iPhone"), src(999, "Watch")], [src(999, "Watch"), src(999, "iPhone")]];
-function groupsBlock(varName, label, days, fields) {
-  const parts = [], refs = [];
-  GROUPS.forEach((rows, i) => {
-    const samples = findSamples(label, days, false, false, rows);
-    const find = findSamples(label, days, true, false, [], samples);
-    const body = sampleLines(find, fields, DAY, "Repeat Item", [String(i + 1)]);
-    parts.push(samples, find, ...body);
-    refs.push(...(i ? ["\n"] : []), out(uuidOf(body.at(-1)), "Combined Text"));
-  });
-  const all = act("gettext", { UUID: uid(), WFTextActionText: text(...refs) });
-  return [...parts, all, setVar(varName, out(uuidOf(all), "Text"))];
+const qty = (magnitude, unit) => ({ Value: { Magnitude: magnitude, Unit: unit }, WFSerializationType: "WFQuantityFieldValue" });
+const adjust = (date, op, magnitude = "1") => act("adjustdate", { UUID: uid(), WFDate: text(date), WFAdjustOperation: op,
+  WFDuration: qty(magnitude, "days") });
+// "Start Date is after <day start>" (2, as Apple's own "is after Current Date") and "is between <long ago> and <day
+// end>" (1003, as Apple's own samples: a fixed lower bound, a variable upper bound)
+const LONG_AGO = new Date("2000-01-01T00:00:00Z");
+const dayRows = (start, end) => [
+  { Bounded: true, Operator: 2, Property: "Start Date", Removable: true, Values: { Date: attach(start) } },
+  { Bounded: true, Operator: 1003, Property: "Start Date", Removable: true, Values: { Date: LONG_AGO, AnotherDate: attach(end) } },
+];
+
+// The last n days, today first: Steps and Active get one "day|sum[|unit]|group" line per day and group that has samples.
+function byDayBlock(n) {
+  const now = act("date", { UUID: uid(), WFDateActionMode: "Current Date" });
+  const today = adjust(out(uuidOf(now), "Date"), "Get Start of Day");
+  const tomorrow = adjust(out(uuidOf(today), "Adjusted Date"), "Add");
+  const start = adjust(out(uuidOf(tomorrow), "Adjusted Date"), "Subtract", attach(named("Repeat Index")));
+  const end = adjust(out(uuidOf(start), "Adjusted Date"), "Add");
+  const day = act("format.date", { UUID: uid(), WFDate: text(out(uuidOf(start), "Adjusted Date")),
+    WFDateFormatStyle: "Custom", WFDateFormat: DAY, WFTimeFormatStyle: "None" });
+  const body = [start, end, day];
+  for (const [varName, label, withUnit] of [["Steps", "Steps", false], ["Active", "Active Calories", true]]) {
+    GROUPS.forEach((rows, i) => {
+      const find = findSamples(label, n + 1, false, false,
+        [...dayRows(out(uuidOf(start), "Adjusted Date"), out(uuidOf(end), "Adjusted Date")), ...rows]);
+      const samples = out(uuidOf(find), "Health Samples");
+      const values = act("properties.health.quantity", { UUID: uid(), CustomOutputName: "Value", WFContentItemPropertyName: "Value",
+        WFInput: attach(samples) });
+      const sum = act("statistics", { UUID: uid(), WFStatisticsOperation: "Sum", WFInput: attach(out(uuidOf(values), "Value")) });
+      const unitActs = [], unitPart = [];
+      if (withUnit) {
+        const units = act("properties.health.quantity", { UUID: uid(), CustomOutputName: "Unit", WFContentItemPropertyName: "Unit",
+          WFInput: attach(samples) });
+        const unit = act("getitemfromlist", { UUID: uid(), WFItemSpecifier: "First Item", WFInput: attach(out(uuidOf(units), "Unit")) });
+        unitActs.push(units, unit); unitPart.push("|", out(uuidOf(unit), "Item from List"));
+      }
+      const line = act("gettext", { UUID: uid(), WFTextActionText: text(out(uuidOf(day), "Formatted Date"), "|",
+        out(uuidOf(sum), "Statistics"), ...unitPart, "|" + (i + 1)) });
+      body.push(find, ...ifHasValue(samples, [values, sum, ...unitActs, line,
+        act("appendvariable", { WFVariableName: varName, WFInput: attach(out(uuidOf(line), "Text")) })]));
+    });
+  }
+  const g = uid();
+  return [now, today, tomorrow,
+    act("repeat.count", { GroupingIdentifier: g, WFControlFlowMode: 0, WFRepeatCount: n, UUID: uid() }),
+    ...body,
+    act("repeat.count", { GroupingIdentifier: g, WFControlFlowMode: 2, UUID: uid() })];
 }
 
 export function build() {
@@ -182,13 +218,11 @@ export function build() {
     ...healthBlock("Weight", "Weight", w.food, false, ["Start Date", "Value", "Unit"], MIN),
     ...healthBlock("Sleep", "Sleep", w.move, false, ["Start Date", "End Date", "Value", "Source"], MIN),
     post(["Calories", "Weight", "Sleep"]),
-    // Steps and Active Calories: day totals per group of devices (v3, groupsBlock)
-    ...groupsBlock("Steps", "Steps", w.move, ["Start Date", "Value"]),
-    post(["Steps"]),
-    ...groupsBlock("Active", "Active Calories", w.move, ["Start Date", "Value", "Unit"]),
-    post(["Active"]),
+    // Steps and Active Calories: day totals per group of devices, added up on the phone (v3.6, byDayBlock)
+    ...byDayBlock(w.days),
+    post(["Steps", "Active"]),
   ];
-  const FIRST = { move: 30, food: 30 }, DAILY = { move: 2, food: 7 };
+  const FIRST = { move: 30, food: 30, days: 30 }, DAILY = { move: 2, food: 7, days: 3 };
   const health = ifHasInput(read(FIRST), read(DAILY));
 
   // 3. Back to Motus
@@ -223,6 +257,7 @@ const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&
 function xml(v, ind = "") {
   const n = ind + "\t";
   if (v === true || v === false) return `${ind}<${v}/>`;
+  if (v instanceof Date) return `${ind}<date>${v.toISOString().replace(/\.\d{3}Z$/, "Z")}</date>`;
   if (typeof v === "number") return `${ind}<integer>${v}</integer>`;
   if (typeof v === "string") return `${ind}<string>${esc(v)}</string>`;
   if (Array.isArray(v)) return v.length ? `${ind}<array>\n${v.map(x => xml(x, n)).join("\n")}\n${ind}</array>` : `${ind}<array/>`;
