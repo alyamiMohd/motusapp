@@ -8,8 +8,8 @@ const say = (html, kind = "") => { const el = $("m-find"); el.className = "msg "
 
 // one person: photo or initial, name and @username (a link to their profile), and the buttons for how we relate
 function row(p, rel) {
-  const name = p.name || "@" + p.username, initial = esc((name.replace(/^@/, "").trim().charAt(0) || "M").toUpperCase());
-  const face = p.avatar && /^data:image\//.test(p.avatar) ? `<img src="${esc(p.avatar)}" alt="">` : `<span>${initial}</span>`;
+  const name = p.name || "@" + p.username;
+  const face = p.avatar && /^data:image\//.test(p.avatar) ? `<img src="${esc(p.avatar)}" alt="">` : '<span class="mark"></span>';
   const btn = (act, text, cls = "ghost") => `<button class="btn small ${cls}" type="button" data-act="${act}" data-u="${esc(p.username)}">${text}</button>`;
   const actions = {
     none: btn("add", "Add", ""),

@@ -80,9 +80,8 @@ function navState() {
 }
 const PERSON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="4"/><path d="M4 21c.8-4.3 4-6.5 8-6.5s7.2 2.2 8 6.5"/></svg>';
 function face({ me, photo }) {
-  const name = me && ((me.profile && me.profile.name) || me.email) || "";
-  const pic = photo && /^data:image\//.test(photo) ? `<img src="${esc(photo)}" alt="">`
-    : me ? `<span>${esc(name.trim().charAt(0).toUpperCase() || "M")}</span>` : PERSON;
+  // no photo yet: the Motus mark stands in (style.css .mark)
+  const pic = photo && /^data:image\//.test(photo) ? `<img src="${esc(photo)}" alt="">` : me ? '<span class="mark"></span>' : PERSON;
   return pic + (me && me.requests ? '<i class="dot-new" aria-hidden="true"></i>' : "");     // someone asks to be friends
 }
 const meLabel = s => !s.me ? "Sign in" : s.me.requests ? `Your profile, ${s.me.requests} asking to be friends` : "Your profile";

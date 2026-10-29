@@ -14,7 +14,6 @@ let person = null;
 function card(p) {
   $("name").textContent = p.name || "@" + p.username;
   $("user").textContent = "@" + p.username;
-  $("initial").textContent = ((p.name || p.username).trim().charAt(0) || "M").toUpperCase();
   if (p.avatar && /^data:image\//.test(p.avatar)) { $("photo").src = p.avatar; $("photo").hidden = false; $("initial").hidden = true; }
   document.title = (p.name || "@" + p.username) + " · Motus";
   $("card").hidden = false;

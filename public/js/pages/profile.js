@@ -29,7 +29,6 @@ function show(p) {
   $("username").value = p.username || "";
   $("show-name").textContent = p.name || "Your name";
   $("show-user").textContent = p.username ? "@" + p.username : me.email || "";
-  $("initial").textContent = ((p.name || me.email || "M").trim().charAt(0) || "M").toUpperCase();
   $("photo").hidden = !p.avatar; $("initial").hidden = !!p.avatar; $("b-nophoto").hidden = !p.avatar;
   if (p.avatar) $("photo").src = p.avatar;
   const pub = !!p.public;
