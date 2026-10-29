@@ -209,8 +209,10 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
   const counts = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("repeat.count") && a.WFWorkflowActionParameters.WFControlFlowMode === 0)
     .map(a => a.WFWorkflowActionParameters.WFRepeatCount).join();
   const back = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("adjustdate") && a.WFWorkflowActionParameters.WFAdjustOperation === "Subtract");
-  check("v4: the first run goes back 30 days, daily runs 3 (today first), each day Repeat Index days back from tomorrow",
-    counts === "30,3" && back.length === 2 && back.every(a => a.WFWorkflowActionParameters.WFDuration.Value.Magnitude.Value.VariableName === "Repeat Index"), counts);
+  const dayEnds = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("setvariable") && a.WFWorkflowActionParameters.WFVariableName === "Day End").length;
+  check("v4: the first run goes back 30 days, daily runs 3 (today first), a fixed 1 day back each pass (Day End)",
+    counts === "30,3" && back.length === 2 && back.every(a => a.WFWorkflowActionParameters.WFDuration.Value.Magnitude === "1") && dayEnds === 4 &&
+    !JSON.stringify(acts).includes('"VariableName":"Repeat Index"'), counts);
   const byDay = finds.filter(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates.length > 2);
   check("v4: each day's Find: Start Date is between the day's start and the next day's start (the date filter that works)",
     byDay.length === 4 && byDay.every(p => { const r = p.WFContentItemFilter.Value.WFActionParameterFilterTemplates;

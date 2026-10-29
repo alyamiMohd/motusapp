@@ -178,7 +178,8 @@ async function upload(req, env) {
           multi.filter(v => new Set(v).size === 1).length}/${multi.length} days)`;
       }
     }
-    // v4, one day: how many samples, whether the columns line up, how many devices (counts only, no names)
+    // v4, one day: which day, how many samples, whether the columns line up, how many devices (counts only, no names)
+    if (+payload.v >= 4) shape.day = String(payload.day || "").slice(0, 10);
     if (+payload.v >= 4) for (const k of ["steps", "active"]) {
       const lines = f => String(payload[k + "_" + f] || "").split(/\r?\n/).filter(Boolean);
       const v = lines("values"), s = lines("sources");

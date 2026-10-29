@@ -152,15 +152,17 @@ const column = (find, prop) => {
 
 // The last n days, today first, one upload per day: {v: 4, day, steps_values, steps_sources, active_values,
 // active_sources, active_units}, each a column with one line per sample.
+// Each pass steps one day back from the variable Day End (tomorrow at first). "Subtract <Repeat Index> days" gave
+// three empty days on the owner's iPhone (the variable amount seems not to count), so every step is a fixed 1 day.
 function byDayBlock(n, post4) {
   const now = act("date", { UUID: uid(), WFDateActionMode: "Current Date" });
   const today = adjust(out(uuidOf(now), "Date"), "Get Start of Day");
   const tomorrow = adjust(out(uuidOf(today), "Adjusted Date"), "Add");
-  const start = adjust(out(uuidOf(tomorrow), "Adjusted Date"), "Subtract", attach(named("Repeat Index")));
-  const end = adjust(out(uuidOf(start), "Adjusted Date"), "Add");
+  const end = adjust(named("Day End"), "Get Start of Day");       // a fresh copy of Day End to filter with
+  const start = adjust(out(uuidOf(end), "Adjusted Date"), "Subtract");
   const day = act("format.date", { UUID: uid(), WFDate: text(out(uuidOf(start), "Adjusted Date")),
     WFDateFormatStyle: "Custom", WFDateFormat: DAY, WFTimeFormatStyle: "None" });
-  const body = [start, end, day], fields = [["day", text(out(uuidOf(day), "Formatted Date"))]];
+  const body = [end, start, day], fields = [["day", text(out(uuidOf(day), "Formatted Date"))]];
   for (const [key, label, props] of [["steps", "Steps", ["Value", "Source"]], ["active", "Active Calories", ["Value", "Source", "Unit"]]]) {
     // "in the last n+1 days" too: a plain bound Health can use before the day's own range
     const find = findSamples(label, n + 1, false, false, [between(out(uuidOf(start), "Adjusted Date"), out(uuidOf(end), "Adjusted Date"))]);
@@ -171,9 +173,9 @@ function byDayBlock(n, post4) {
       fields.push([key + "_" + (prop === "Value" ? "values" : prop === "Source" ? "sources" : "units"), ref]);
     }
   }
-  body.push(post4(fields));
+  body.push(post4(fields), setVar("Day End", out(uuidOf(start), "Adjusted Date")));
   const g = uid();
-  return [now, today, tomorrow,
+  return [now, today, tomorrow, setVar("Day End", out(uuidOf(tomorrow), "Adjusted Date")),
     act("repeat.count", { GroupingIdentifier: g, WFControlFlowMode: 0, WFRepeatCount: n, UUID: uid() }),
     ...body,
     act("repeat.count", { GroupingIdentifier: g, WFControlFlowMode: 2, UUID: uid() })];
