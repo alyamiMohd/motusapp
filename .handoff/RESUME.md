@@ -2,7 +2,7 @@
 
 **Project:** Motus (public app): a fitness dashboard anyone can use. Sign in with an emailed code, connect Hevy and Apple Health once, and it stays up to date by itself; files can also be imported; demo data until then.
 **Repo:** https://github.com/alyamiMohd/motusapp (public, `main`). **Live (with accounts): https://motus.motusapp.workers.dev** (Cloudflare: account subdomain `motusapp`, Worker `motus`, D1 `motus` id 4757ecc4-340b-41d4-a641-1f742da8af25, region WEUR, cron every 30 min). Pages without accounts: https://alyamimohd.github.io/motusapp/ (its Connect page links to the live app).
-**Last updated:** 2026-10-29 16:30 (UTC+03, Riyadh) · last code commit `9c312f1` (Shortcut v5.4), deployed as version da346411, which also carries temporary files under `/setup/` (see below)
+**Last updated:** 2026-10-29 16:35 (UTC+03, Riyadh) · last code commit `e1c16d5`, deployed as version cc57c6ea (no temporary files any more)
 **Obsolete:** `alyamiMohd/motus-sync` (template for the earlier GitHub-copy sync, rejected as onboarding); its copies would fail now. Ask the owner before archiving/deleting it.
 
 ## Instructions for Claude
@@ -21,13 +21,13 @@
 
 - **What Shortcuts can and can't do (measured, 2026-10-29; don't retry):** Group By Day sums every source; Source filters (picker with variable errors; text contains/begins/ends let everything through) never filter; grouping an earlier Find's list ignores the list; "Start Date is after <var>" lets nothing through; "is between <var> and <var>" works; "Adjust Date subtract <Repeat Index> days" is ignored (fixed 1-day steps work); a month of single samples in one Find stops the run; empty Finds don't error; Get Details, Format Date (given the list in a text field) and Combine Text work on whole lists in order; per-sample Repeat loops are slow and memory-heavy (v5.1's 30-day run stopped at the end); a run cut off when the phone leaves Shortcuts ("Could not connect to the server"); no Shortcuts action exposes Health's own merged totals.
 - **Signing:** one testing certificate (D-029): GitHub secrets `MOTUS_SIGN_KEY/CERT/ROOT`, expires 28 Nov 2026, fingerprint D2:E2:C7:84…, trusted on the owner's iPhone. New version = delete Motus → open https://motus.motusapp.workers.dev/setup/Motus.shortcut → Add.
-- **Temporary, deployed but NOT in git:** `public/setup/` (in `.git/info/exclude`) and a TEMPORARY block in `public/_headers` (never commit it).
-- `SHORTCUT_URL` (`public/js/account.js`) and `public/shortcut.html` still point to the **old v1** iCloud link `eb6a8c01…`.
+- `/setup/` and its TEMPORARY `_headers` block are removed (2026-10-29 16:35); `public/setup/` stays in `.git/info/exclude` for the next test version.
+- **Everyone now gets v5.4:** `SHORTCUT_URL` and `public/shortcut.html` point to the owner's iCloud link https://www.icloud.com/shortcuts/d49da9d79d1e49bca0092a4fdd53ef07 (checked: 141 actions, the v5.4 features). Apple signs iCloud links, so no profile for anyone else.
 - Data: 31 days stored (29 Sep is an old doubled leftover); sleep 26 nights, 3 over 11 h (10, 16, 20 Oct) not yet checked by the owner.
 - Tests: 215 checks pass (core 43, importers 65, store 20, server 87).
 
 ## Next action
-Owner shares Motus (v5.4) → Copy iCloud Link → set `SHORTCUT_URL` (`public/js/account.js`) and the link in `public/shortcut.html`; delete `public/setup/`, `git checkout public/_headers`; deploy; commit. Then: daily automation, remove the upload-shape log, remove the testing certificate (secrets `MOTUS_SIGN_*` and the profile on the iPhone), check energy and sleep the same way as steps if the owner wants.
+The daily automation on the owner's iPhone (Shortcuts → Automation → Time of Day → Daily → Run Immediately → Motus) and a check the next morning; then remove the upload-shape log; decide whether to keep the testing certificate (GitHub secrets `MOTUS_SIGN_*`, expires 28 Nov; the owner can remove the profile from the iPhone now). Open data questions: 3 sleep nights over 11 h (10, 16, 20 Oct), 29 Sep's doubled leftover (delete only with the owner's yes). To ship a new Shortcut version: build → sign (testing cert) → `public/setup/` + TEMPORARY `_headers` → owner tests → owner shares iCloud link → swap the link, remove setup.
 
 ## Open questions waiting on the owner
 - The v4.x iCloud link (after the 30-day run is right).
