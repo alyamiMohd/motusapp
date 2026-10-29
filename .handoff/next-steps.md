@@ -1,6 +1,9 @@
-# Next steps (as of 2026-10-28 16:10, UTC+03)
+# Next steps (as of 2026-10-29, UTC+03)
 
 ## Prioritized
+- [ ] (2026-10-29) Owner reviews the new Home (locked look, training-days prompt), Data, Profile hub, Friends and Integrations on the iPhone.
+- [ ] A domain so other people can sign in; then try friends with two real accounts on the live site (request, accept, dashboard, privacy switch, dot).
+- [ ] People with data but default training days see a blurred week strip until they tap a day: check the owner is fine with that for existing users.
 - [ ] (2026-10-29) Owner looks at the new Connect, Profile (photo, username, share link), Workouts and Home on the iPhone and says what to change.
 - [ ] (2026-10-29) **Android on a real phone**: someone with Android installs HC Webhook, downloads the setup file from Connect → Health Connect, imports it (⋮ → Settings backup → Import), grants permissions; Claude checks the `hc upload:` counts in `wrangler tail` and the days in D1 (never print values). Check HC Webhook's import screen wording matches Connect's step 3.
 - [ ] **Owner installs Shortcut v2** from https://motus.motusapp.workers.dev/setup/ (remove old profile → install new profile + full trust → delete old Motus → add new, name exactly "Motus" → Finish → Copy iCloud Link). Then Claude: check counts in the log/D1 (30 days arrived, steps not doubled; never print values), set the new link in `SHORTCUT_URL` (`public/js/account.js`) and `public/shortcut.html`, delete `public/setup/`, `git checkout public/_headers`, deploy, commit, restart the tail.
@@ -15,6 +18,7 @@
 - [ ] Privacy note: data is in Cloudflare's Western Europe region (D1 WEUR); say so in the privacy text before public launch (Saudi PDPL).
 
 ## Done (recent)
+- [x] 2026-10-29 session 2: brand kit, friends + privacy, Profile hub, default picture, Data rename, no demo signed in, locked starter look (D-038 to D-042).
 - [x] Deployed to Cloudflare 2026-10-27; sign-in by email code; owner signed in.
 - [x] Sign-in codes from the owner's Gmail (Apps Script) 2026-10-28 (Resend paused, Brevo rejected).
 - [x] Motus Shortcut signed without a Mac (D-022) and run on the owner's iPhone: Apple Health end to end, Hijri dates converted (2026-10-28).

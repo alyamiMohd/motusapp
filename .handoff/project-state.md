@@ -84,3 +84,18 @@ Production secrets via `npx wrangler secret put`: `HEVY_SECRET` (32 random bytes
 - `wrangler tail` stops following after every deploy: restart it.
 ## Not verified
 Hevy with a real key; the v2 Shortcut and the daily automation on the iPhone; an Arabic-language phone; free-plan CPU limits under real load; **Android end to end** (HC Webhook importing the settings file and uploading from a real phone); the photo picker and Share sheet on a real iPhone.
+
+## Added 2026-10-29 (session 2)
+| Path | Role |
+|---|---|
+| `public/brand/` | Brand kit files: mark.png (256), mark-512.webp, favicon.ico/svg/32, apple-touch-icon (iOS 180), icon-192/512, maskable-512, og.jpg, site.webmanifest |
+| `public/js/dashboard.js` | The dashboard drawing shared by Home and someone's profile (`drawDashboard(data, {own, askDays})`) |
+| `public/friends.html`, `js/pages/friends.js` | Find people, requests, friends list (opens from Profile) |
+| `public/profile.html`, `js/pages/profile.js` | The hub: Friends (faces), Integrations (app icons), Edit profile, Privacy, Standards, About, Account; `#std` opens Standards |
+| `public/user.html`, `js/pages/user.js` | `/u/<username>` (base href "/"): name/photo for anyone; signed in: add/accept/remove and the dashboard when allowed |
+| `worker/friends.js` | Visibility, search, requests, accept, remove, a friend's dashboard; `forget` on account deletion |
+| `worker/schema.sql` | + `sharing`, `friends`, `friend_requests` (applied to remote D1 with only those CREATE statements; the file import hit Cloudflare auth 10000, `--command` worked) |
+
+API added: GET /api/friends · POST /api/friends {username} · POST /api/friends/accept · DELETE /api/friends/:username · GET /api/people?q= · GET /api/people/:username · GET /api/people/:username/data. `/api/me` carries `requests` (count) and `profile.public`; friend changes bump both users' `changed` (ETag).
+Store: `getData()` returns `{empty: true}` when signed in without sources (never the demo); `dataFrom(sources)` merges any set (a friend's). Prefs: `daysSet`.
+Windows dev note: local D1 needs `--persist-to <short path>` here (long scratch path -> SQLITE_CANTOPEN); `tests/mock_hevy.mjs` + `HEVY_API` in .dev.vars for Hevy without a real key.
