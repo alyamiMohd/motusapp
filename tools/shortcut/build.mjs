@@ -149,9 +149,27 @@ const column = (find, prop) => {
   const joined = act("text.combine", { UUID: uid(), WFTextSeparator: "New Lines", text: attach(out(uuidOf(details), prop)) });
   return [[details, joined], text(out(uuidOf(joined), "Combined Text"))];
 };
+// v5: each sample's start and end time, so the server can merge devices minute by minute as the Health app does.
+// Which way this iPhone turns a whole list of dates into lines isn't known yet, so each time column comes three ways
+// and the server uses the first that lines up with the values: "" = Format Date given the list itself, "_b" = given
+// it in a text field, "_c" = Combine Text with the date format on the variable. Keep the winner, drop the rest.
+const STAMP = "yyyy-MM-dd HH:mm:ss";
+const timeColumns = (find, prop) => {
+  const details = act("properties.health.quantity", { UUID: uid(), CustomOutputName: prop, WFContentItemPropertyName: prop,
+    WFInput: attach(out(uuidOf(find), "Health Samples")) });
+  const list = out(uuidOf(details), prop);
+  const fmt = date => act("format.date", { UUID: uid(), WFDate: date, WFDateFormatStyle: "Custom", WFDateFormat: STAMP, WFTimeFormatStyle: "None" });
+  const lines = ref => act("text.combine", { UUID: uid(), WFTextSeparator: "New Lines", text: attach(ref) });
+  const a = fmt(attach(list)), b = fmt(text(list));
+  const ja = lines(out(uuidOf(a), "Formatted Date")), jb = lines(out(uuidOf(b), "Formatted Date"));
+  const jc = lines(out(uuidOf(details), prop, { Aggrandizements: [{ Type: "WFDateFormatVariableAggrandizement",
+    WFDateFormatStyle: "Custom", WFDateFormat: STAMP, WFTimeFormatStyle: "None" }] }));
+  return [[details, a, ja, b, jb, jc], [["", ja], ["_b", jb], ["_c", jc]].map(([s, j]) => [s, text(out(uuidOf(j), "Combined Text"))])];
+};
 
-// The last n days, today first, one upload per day: {v: 4, day, steps_values, steps_sources, active_values,
-// active_sources, active_units}, each a column with one line per sample.
+// The last n days, today first, one upload per day: {v: 5, day, steps_values, steps_sources, steps_starts*,
+// steps_ends*, active_values, active_sources, active_units, active_starts*, active_ends*}, each a column with one line
+// per sample (* three ways, see timeColumns).
 // Each pass steps one day back from the variable Day End (tomorrow at first). "Subtract <Repeat Index> days" gave
 // three empty days on the owner's iPhone (the variable amount seems not to count), so every step is a fixed 1 day.
 function byDayBlock(n, post4) {
@@ -171,6 +189,11 @@ function byDayBlock(n, post4) {
       const [acts, ref] = column(find, prop);
       body.push(...acts);
       fields.push([key + "_" + (prop === "Value" ? "values" : prop === "Source" ? "sources" : "units"), ref]);
+    }
+    for (const [prop, name] of [["Start Date", "starts"], ["End Date", "ends"]]) {
+      const [acts, refs] = timeColumns(find, prop);
+      body.push(...acts);
+      for (const [suffix, ref] of refs) fields.push([key + "_" + name + suffix, ref]);
     }
   }
   body.push(post4(fields), setVar("Day End", out(uuidOf(start), "Adjusted Date")));
@@ -211,7 +234,7 @@ export function build() {
     ...healthBlock("Sleep", "Sleep", w.move, false, ["Start Date", "End Date", "Value", "Source"], MIN),
     post(["Calories", "Weight", "Sleep"]),
     // Steps and Active Calories: one upload per day, single samples with their devices (v4, byDayBlock)
-    ...byDayBlock(w.days, fields => send("4", fields)),
+    ...byDayBlock(w.days, fields => send("5", fields)),
   ];
   const FIRST = { move: 30, food: 30, days: 30 }, DAILY = { move: 2, food: 7, days: 3 };
   const health = ifHasInput(read(FIRST), read(DAILY));

@@ -78,23 +78,76 @@ const UNIT = [[/^(kg|kgs|kilo|kilogram|kilograms|كغ|كجم|كيلو|كيلوغ
               [/^(g|gram|grams|غ|جم|غرام|جرام)$/i, 0.001], [/^(st|stone|stones)$/i, 6.35029318]];
 const toKg = (v, unit) => { const u = UNIT.find(([re]) => re.test(String(unit || "").trim().replace(/\.$/, ""))); return u ? v * u[1] : v > 180 ? v * LB : v; };
 
-// v4: one day of single samples, values and their devices in parallel columns, one line per sample. Each device's
-// samples are added up and the busiest device counts, so an iPhone and a Watch counting the same walk aren't added
-// together (as the Health app roughly does). The device names are used only here, never stored.
+// v4/v5: one day of single samples, values and their devices in parallel columns, one line per sample. The device
+// names are used only here, never stored.
+// v5 adds each sample's start and end, and then the devices are merged as the Health app merges them: time is cut at
+// every sample's start and end, and each piece goes to the highest-priority device that has a sample over it (Health's
+// default order: Apple Watch, then iPhone, then apps; ties: the busier device that day), whose sample counts for the
+// share of its length that the piece is. Without usable times (v4, or a time column that didn't arrive as lines),
+// each device is added up and the busiest one counts.
 const toKcal = (n, u) => (/^(kj|كج)/i.test(String(u || "").trim()) ? n / 4.184 : n);
+const RANK = s => (/watch/i.test(s) ? 0 : /iphone/i.test(s) ? 1 : 2);
+export function mergeLikeHealth(samples) {      // [{ a, b (minutes), v, src }] -> total
+  const busy = {};
+  for (const s of samples) busy[s.src] = (busy[s.src] || 0) + s.v;
+  const order = Object.keys(busy).sort((x, y) => RANK(x) - RANK(y) || busy[y] - busy[x]);
+  const pri = Object.fromEntries(order.map((s, i) => [s, i]));
+  const spans = samples.filter(s => s.b > s.a).sort((x, y) => x.a - y.a), points = samples.filter(s => s.b <= s.a);
+  const cuts = [...new Set(spans.flatMap(s => [s.a, s.b]))].sort((x, y) => x - y);
+  let total = 0, next = 0, live = [];
+  for (let i = 0; i + 1 < cuts.length; i++) {
+    const lo = cuts[i], hi = cuts[i + 1];
+    while (next < spans.length && spans[next].a <= lo) live.push(spans[next++]);
+    let n = 0;                                          // drop what ended; every cut is a boundary, so the rest covers [lo, hi]
+    for (const s of live) if (s.b > lo) live[n++] = s;
+    live.length = n;
+    let best = Infinity;
+    for (const s of live) if (pri[s.src] < best) best = pri[s.src];
+    if (best === Infinity) continue;
+    for (const s of live) if (pri[s.src] === best) total += s.v * (hi - lo) / (s.b - s.a);
+  }
+  // a sample with no length counts unless a higher-priority device covers that moment
+  for (const s of points) if (!spans.some(o => pri[o.src] < pri[s.src] && o.a <= s.a && s.a < o.b)) total += s.v;
+  return total;
+}
+// "yyyy-MM-dd HH:mm[:ss]" -> minutes, quickly: a day's thousand samples share one date, converted (Hijri too) once
+const STAMP = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/;
+const DAY_MINS = new Map();
+function stampMins(t) {
+  const m = STAMP.exec(t);
+  if (!m) { const w = when(t); return w && /\d:\d/.test(digits(t)) ? w.mins : null; }    // Arabic digits and the like
+  let base = DAY_MINS.get(m[1]);
+  if (base === undefined) { const w = when(m[1]); DAY_MINS.set(m[1], base = w ? w.mins : null); }
+  return base == null ? null : base + +m[2] * 60 + +m[3] + (+m[4] || 0) / 60;
+}
 function fromShortcutDay(p) {
   const days = {}, w = when(String(p.day || ""));
   if (!w) return days;
   const col = t => String(t || "").split(/\r?\n/);
   for (const [key, field, energy] of [["steps", "steps", false], ["active_kcal", "active", true]]) {
-    const sources = col(p[field + "_sources"]), units = col(p[field + "_units"]), bySrc = {};
+    const sources = col(p[field + "_sources"]), units = col(p[field + "_units"]), samples = [];
     col(p[field + "_values"]).forEach((v, i) => {
       const n = num(v);
-      if (n == null) return;
-      const src = (sources[i] || "").trim() || "?";
-      bySrc[src] = (bySrc[src] || 0) + (energy ? toKcal(n, units[i]) : n);
+      if (n != null) samples.push({ i, v: energy ? toKcal(n, units[i]) : n, src: (sources[i] || "").trim() || "?" });
     });
-    const best = Math.round(Math.max(0, ...Object.values(bySrc)));
+    // the first of the three time columns whose every line is a time
+    let times = null;
+    for (const sfx of ["", "_b", "_c"]) {
+      const st = col(p[field + "_starts" + sfx]), en = col(p[field + "_ends" + sfx]), a = [], b = [];
+      if (!samples.every(s => (a[s.i] = stampMins(st[s.i] || "")) != null && (b[s.i] = stampMins(en[s.i] || "")) != null)) continue;
+      times = [a, b];
+      break;
+    }
+    let best;
+    if (samples.length && times) {
+      for (const s of samples) { s.a = times[0][s.i]; s.b = times[1][s.i]; }
+      best = mergeLikeHealth(samples);
+    } else {
+      const bySrc = {};
+      for (const s of samples) bySrc[s.src] = (bySrc[s.src] || 0) + s.v;
+      best = Math.max(0, ...Object.values(bySrc));
+    }
+    best = Math.round(best);
     if (best > 0) (days[w.date] || (days[w.date] = {}))[key] = best;
   }
   return days;
