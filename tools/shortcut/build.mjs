@@ -59,7 +59,8 @@ function ifHasValue(ref, body, otherwise) {   // If <ref> has any value … [Oth
 const ifHasInput = (body, otherwise) => ifHasValue(INPUT, body, otherwise);
 
 // rows: more filter rows after Type and Start Date (all must hold), such as a fixed "Source contains …"
-function findSamples(label, days, groupByDay, fillMissing = false, rows = []) {
+// from: an earlier Find whose samples this one filters ("Filter Health Samples") instead of asking Health again
+function findSamples(label, days, groupByDay, fillMissing = false, rows = [], from) {
   const p = {
     UUID: uid(),
     WFContentItemFilter: {
@@ -83,6 +84,7 @@ function findSamples(label, days, groupByDay, fillMissing = false, rows = []) {
     WFHKSampleFilteringFillMissing: fillMissing,
   };
   if (groupByDay) p.WFHKSampleFilteringGroupBy = "Day";
+  if (from) p.WFContentItemInputParameter = attach(out(uuidOf(from), "Health Samples"));
   return act("filter.health.quantity", p);
 }
 
@@ -133,14 +135,19 @@ function healthBlock(varName, label, days, groupByDay, fields, pattern, fillMiss
 // Health app roughly does. The filters are fixed text: a Source filter filled from a variable failed ("Source is",
 // v3.0) or was silently ignored ("begins with", v3.1-3.3: every device's total came back as the sum of all) on the
 // owner's iPhone, 2026-10-29. Default names keep "iPhone" and "Apple Watch" in every language.
+// Shortcuts applies a Source filter AFTER grouping by day, to day totals whose source is every device (v3.4 put all
+// steps under "Watch" and none under "iPhone"), so each group first finds its single samples, where the filter works,
+// and a second Find makes day totals of just those. Should it hand back single samples, the lines still add up right:
+// the server sums each group's lines per day.
 const src = (op, s) => ({ Bounded: true, Operator: op, Property: "Source", Removable: true, Values: { String: s } });
 const GROUPS = [[src(99, "Watch")], [src(99, "iPhone"), src(999, "Watch")], [src(999, "Watch"), src(999, "iPhone")]];
 function groupsBlock(varName, label, days, fields) {
   const parts = [], refs = [];
   GROUPS.forEach((rows, i) => {
-    const find = findSamples(label, days, true, false, rows);
+    const samples = findSamples(label, days, false, false, rows);
+    const find = findSamples(label, days, true, false, [], samples);
     const body = sampleLines(find, fields, DAY, "Repeat Item", [String(i + 1)]);
-    parts.push(find, ...body);
+    parts.push(samples, find, ...body);
     refs.push(...(i ? ["\n"] : []), out(uuidOf(body.at(-1)), "Combined Text"));
   });
   const all = act("gettext", { UUID: uid(), WFTextActionText: text(...refs) });

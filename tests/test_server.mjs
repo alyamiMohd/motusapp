@@ -195,15 +195,22 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
   const PARTS = "v+calories+weight+sleep,v+steps,v+active";
   check("Shortcut sends the fields the server reads, in three parts (food, weight, sleep; steps; energy), in both runs",
     keys === PARTS + "," + PARTS && posts.every(p => p.WFHTTPMethod === "POST"), keys);
-  const NINE = "Dietary Calories,Weight,Sleep,Steps,Steps,Steps,Active Calories,Active Calories,Active Calories";
-  check("Shortcut reads the five Health types, once for the first run and once for daily runs", labels.join() === NINE + "," + NINE, labels.join());
+  const FIFTEEN = "Dietary Calories,Weight,Sleep," + Array(6).fill("Steps").join() + "," + Array(6).fill("Active Calories").join();
+  check("Shortcut reads the five Health types, once for the first run and once for daily runs", labels.join() === FIFTEEN + "," + FIFTEEN, labels.join());
   const finds = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("filter.health.quantity")).map(a => a.WFWorkflowActionParameters);
   const days = finds.map(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates[1].Values.Number).join();
   check("first run reads 30 days of everything; daily runs 2 days (a week of food and weight)",
-    days === "30,30,30,30,30,30,30,30,30,7,7,2,2,2,2,2,2,2", days);
-  const grouped = finds.map(p => (p.WFHKSampleFilteringGroupBy || "-") + (p.WFHKSampleFilteringFillMissing ? "+" : "")).join();
-  check("v3: food (filling missing days), steps and active energy are day totals; weight and sleep raw; nothing limited",
-    grouped === "Day+,-,-,Day,Day,Day,Day,Day,Day,Day+,-,-,Day,Day,Day,Day,Day,Day" && !finds.some(p => p.WFContentItemLimitEnabled), grouped);
+    days === Array(15).fill(30).join() + ",7,7," + Array(13).fill(2).join(), days);
+  const grouped = finds.map(p => (p.WFHKSampleFilteringGroupBy || "-") + (p.WFHKSampleFilteringFillMissing ? "+" : "") + (p.WFContentItemInputParameter ? "<" : "")).join();
+  const SPLIT = Array(6).fill("-,Day<").join();
+  check("v3: per device group, single samples first, then day totals of just those; food fills missing days; weight and sleep raw",
+    grouped === "Day+,-,-," + SPLIT + ",Day+,-,-," + SPLIT && !finds.some(p => p.WFContentItemLimitEnabled), grouped);
+  const chained = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("filter.health.quantity") && a.WFWorkflowActionParameters.WFContentItemInputParameter);
+  check("v3: each day-total Find filters the Find right before it (its own device group)", chained.length === 12 && chained.every(a => {
+    const i = acts.indexOf(a), prev = acts[i - 1];
+    return a.WFWorkflowActionParameters.WFContentItemInputParameter.Value.OutputUUID === prev.WFWorkflowActionParameters.UUID &&
+      prev.WFWorkflowActionParameters.WFContentItemFilter.Value.WFActionParameterFilterTemplates.some(r => r.Property === "Source") &&
+      !a.WFWorkflowActionParameters.WFContentItemFilter.Value.WFActionParameterFilterTemplates.some(r => r.Property === "Source"); }));
   const rows = finds.filter(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates.length > 2)
     .map(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates.slice(2).map(r => r.Property + r.Operator + r.Values.String).join("&")).join();
   const G = "Source99Watch,Source99iPhone&Source999Watch,Source999Watch&Source999iPhone";
