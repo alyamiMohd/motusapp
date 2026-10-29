@@ -230,6 +230,13 @@ export function readHealthUpload(p) {
   else if (p.health) days = fromHealthExporterJSON(typeof p.health === "string" ? JSON.parse(p.health) : p.health).days;
   else if (p.days && typeof p.days === "object") days = p.days;
   else if (+p.v >= 4 && typeof p.day === "string") days = fromShortcutDay(p);
+  else if (+p.v >= 5 && ["calories_values", "weight_values", "sleep_values"].some(k => typeof p[k] === "string")) {
+    // v5.2 sends food, weight and sleep as columns too: zipped back into the "a|b|c" lines read above
+    const zip = (...keys) => { const cols = keys.map(k => String(p[k] || "").split(/\r?\n/));
+      return cols[0].map((_, i) => cols.map(c => c[i] || "").join("|")).join("\n"); };
+    days = fromShortcut({ v: "3", calories: zip("calories_days", "calories_values", "calories_units"),
+      weight: zip("weight_starts", "weight_values", "weight_units"), sleep: zip("sleep_starts", "sleep_ends", "sleep_values", "sleep_sources") });
+  }
   else if (["steps", "calories", "active", "weight", "sleep"].some(k => typeof p[k] === "string")) days = fromShortcut(p);
   else if (["stepCount", "sleepTime", "dietaryEnergy", "weight"].some(k => Array.isArray(p[k]))) days = fromHealthExporterJSON(p).days;
   else throw new Error("Nothing Motus can read in this upload.");

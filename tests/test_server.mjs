@@ -193,7 +193,8 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
   const labels = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("filter.health.quantity"))
     .map(a => a.WFWorkflowActionParameters.WFContentItemFilter.Value.WFActionParameterFilterTemplates[0].Values.Enumeration.Value);
   const DAY4 = "v+day+device+steps_values+steps_sources+steps_starts+active_values+active_sources+active_units+active_starts";
-  const PARTS = "v+calories+weight+sleep," + DAY4;
+  const PARTS = "v+calories_days+calories_values+calories_units+weight_starts+weight_values+weight_units+" +
+    "sleep_starts+sleep_ends+sleep_values+sleep_sources," + DAY4;
   check("Shortcut sends food, weight and sleep, then each day's steps and energy, in both runs",
     keys === PARTS + "," + PARTS && posts.every(p => p.WFHTTPMethod === "POST"), keys);
   const FIVE = "Dietary Calories,Weight,Sleep,Steps,Active Calories";
@@ -220,15 +221,16 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
         r[2].Values.AnotherDate.Value.OutputName === "Adjusted Date" && r[2].Values.Date.Value.OutputUUID !== r[2].Values.AnotherDate.Value.OutputUUID; }));
   const cols = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("properties.health.quantity") && a.WFWorkflowActionParameters.WFInput.Value.OutputName === "Health Samples")
     .map(a => a.WFWorkflowActionParameters.WFContentItemPropertyName).join();
-  const COLS = "Value,Source,Start Date,Value,Source,Unit,Start Date";
-  check("v5: values, sources, energy units and start times as whole-list columns, no loop over samples", cols === COLS + "," + COLS, cols);
+  const COLS = "Start Date,Value,Unit,Start Date,Value,Unit,Start Date,End Date,Value,Source,Value,Source,Start Date,Value,Source,Unit,Start Date";
+  check("v5.2: food, weight, sleep, steps and energy all as whole-list columns; no Repeat over samples anywhere",
+    cols === COLS + "," + COLS && !ids.some(id => id.endsWith("repeat.each")), cols);
   const fmts = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("format.date") && a.WFWorkflowActionParameters.WFDateFormat === "yyyy-MM-dd HH:mm:ss");
   const phones = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("getdevicedetails") && a.WFWorkflowActionParameters.WFDeviceDetail === "Device Name");
   check("v5: start times through Format Date given the list as text (the way that worked), and this phone's name sent once per day",
-    fmts.length === 4 && fmts.every(a => a.WFWorkflowActionParameters.WFDate.WFSerializationType === "WFTextTokenString") &&
+    fmts.length === 10 && fmts.every(a => a.WFWorkflowActionParameters.WFDate.WFSerializationType === "WFTextTokenString") &&
     phones.length === 2 && !JSON.stringify(acts).includes("WFDateFormatVariableAggrandizement"));
   const open = (kind, mode) => ids.filter((id, i) => id.endsWith(kind) && acts[i].WFWorkflowActionParameters.WFControlFlowMode === mode).length;
-  check("Shortcut: every If and Repeat is closed", open("conditional", 0) === open("conditional", 2) && open("repeat.each", 0) === open("repeat.each", 2) && open("repeat.each", 0) === 6 &&
+  check("Shortcut: every If and Repeat is closed", open("conditional", 0) === open("conditional", 2) && open("repeat.each", 0) === 0 &&
     open("repeat.count", 0) === 2 && open("repeat.count", 2) === 2 && open("conditional", 0) === 3 && open("conditional", 1) === 1);
   const uuids = new Set(acts.map(a => a.WFWorkflowActionParameters.UUID).filter(Boolean));
   const refs = [...JSON.stringify(wf).matchAll(/"OutputUUID":"([^"]+)"/g)].map(m => m[1]);
@@ -296,6 +298,12 @@ check("upload reader alone: nothing usable -> error", (() => { try { readHealthU
     console.log(`    (a 1,500-sample day merged in ${ms.toFixed(1)} ms)`);
     check("v5: a busy day (1,500 samples, 3 devices) merges quickly", ms < 20, ms.toFixed(1) + " ms");
   }
+  const p5 = readHealthUpload({ v: "5", calories_days: "2026-10-27\n2026-10-26", calories_values: "1300\n0", calories_units: "Cal\nCal",
+    weight_starts: "2026-10-27 07:05:00", weight_values: "80.9", weight_units: "kg",
+    sleep_starts: "2026-10-26 23:00:00\n2026-10-26 23:30:00", sleep_ends: "2026-10-27 06:00:00\n2026-10-27 06:30:00",
+    sleep_values: "Core\nDeep", sleep_sources: "\n" });
+  check("v5.2: food, weight and sleep as columns read as before (a filled-in 0 stays empty; two devices' night counted once)",
+    p5["2026-10-27"].calories === 1300 && p5["2026-10-27"].weight_kg === 80.9 && p5["2026-10-27"].sleep_hours === 7.5 && !p5["2026-10-26"], JSON.stringify(p5));
   check("v3: active energy per source with kJ (1,674 kJ = 400 kcal beats 300); an all-zero day stays empty",
     v3["2026-10-27"].active_kcal === 400 && !v3["2026-10-26"], JSON.stringify(v3));
   {

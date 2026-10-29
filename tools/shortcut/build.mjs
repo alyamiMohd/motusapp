@@ -86,43 +86,31 @@ function findSamples(label, days, groupByDay, fillMissing = false, rows = []) {
   return act("filter.health.quantity", p);
 }
 
-const detail = (prop, custom) => act("properties.health.quantity", {
-  UUID: uid(), CustomOutputName: custom, WFContentItemPropertyName: prop, WFInput: attach(named("Repeat Item")) });
-const formatDate = (src, pattern) => act("format.date", {
-  UUID: uid(), WFDate: text(out(uuidOf(src), src.WFWorkflowActionParameters.CustomOutputName)),
-  WFDateFormatStyle: "Custom", WFDateFormat: pattern, WFTimeFormatStyle: "None" });
-const DAY = "yyyy-MM-dd", MIN = "yyyy-MM-dd HH:mm";
-const combineLines = endUUID => act("text.combine", { UUID: uid(), WFTextSeparator: "New Lines", text: attach(out(endUUID, "Repeat Results")) });
+const DAY = "yyyy-MM-dd", STAMP = "yyyy-MM-dd HH:mm:ss";
 
-// Repeat over a Find Health Samples result: one "a|b|c" line per sample (or per day when grouped), then Combine Text.
-// fields: detail names (dates formatted with `pattern`).
-function sampleLines(find, fields, pattern) {
-  const g = uid(), endUUID = uid();
-  const inner = [], parts = [];
-  fields.forEach((f, i) => {
-    const d = detail(f, f);
-    inner.push(d);
-    let ref = out(uuidOf(d), f);
-    if (/Date$/.test(f)) { const fd = formatDate(d, pattern); inner.push(fd); ref = out(uuidOf(fd), "Formatted Date"); }
-    if (i) parts.push("|");
-    parts.push(ref);
-  });
-  const line = act("gettext", { UUID: uid(), WFTextActionText: text(...parts) });
-  return [
-    act("repeat.each", { GroupingIdentifier: g, WFControlFlowMode: 0, UUID: uid(),
-      WFInput: attach(out(uuidOf(find), "Health Samples",
-        { Aggrandizements: [{ CoercionItemClass: "WFHKSampleContentItem", Type: "WFCoercionVariableAggrandizement" }] })) }),
-    ...inner, line,
-    act("repeat.each", { GroupingIdentifier: g, WFControlFlowMode: 2, UUID: endUUID }),
-    combineLines(endUUID),
-  ];
-}
-
-// One Health type -> a text variable with one line per sample (or per day when grouped).
-function healthBlock(varName, label, days, groupByDay, fields, pattern, fillMissing = false) {
-  const find = findSamples(label, days, groupByDay, fillMissing);
-  const body = sampleLines(find, fields, pattern);
-  return [find, ...body, setVar(varName, out(uuidOf(body.at(-1)), "Combined Text"))];
+// A Find Health Samples result as columns, one line per sample (or per day when grouped), with no loop over the
+// samples: Get Details and Combine Text work on whole lists, in order. Dates go through Format Date given the list in a
+// text field (of three ways tried on the owner's iPhone, 2026-10-29, the one that turns a list of dates into lines).
+// Until v5.2 food, weight and sleep went through a Repeat per sample: 674 sleep samples for a 30-day run, over 5,000
+// actions, about 2 minutes, and enough for the run to stop near its end.
+// cols: [field, Health property, date pattern if a date]
+function columns(find, cols) {
+  const acts = [], fields = [];
+  for (const [field, prop, pattern] of cols) {
+    const details = act("properties.health.quantity", { UUID: uid(), CustomOutputName: prop, WFContentItemPropertyName: prop,
+      WFInput: attach(out(uuidOf(find), "Health Samples")) });
+    let list = out(uuidOf(details), prop);
+    acts.push(details);
+    if (pattern) {
+      const fmt = act("format.date", { UUID: uid(), WFDate: text(list), WFDateFormatStyle: "Custom", WFDateFormat: pattern, WFTimeFormatStyle: "None" });
+      acts.push(fmt);
+      list = out(uuidOf(fmt), "Formatted Date");
+    }
+    const joined = act("text.combine", { UUID: uid(), WFTextSeparator: "New Lines", text: attach(list) });
+    acts.push(joined);
+    fields.push([field, text(out(uuidOf(joined), "Combined Text"))]);
+  }
+  return [acts, fields];
 }
 
 // v4: steps and active energy, one day at a time, as single samples with their device. Tried and failed on the
@@ -143,25 +131,6 @@ const adjust = (date, op, magnitude = "1") => act("adjustdate", { UUID: uid(), W
   WFDuration: qty(magnitude, "days") });
 const between = (start, end) => ({ Bounded: true, Operator: 1003, Property: "Start Date", Removable: true,
   Values: { Date: attach(start), AnotherDate: attach(end) } });
-const column = (find, prop) => {
-  const details = act("properties.health.quantity", { UUID: uid(), CustomOutputName: prop, WFContentItemPropertyName: prop,
-    WFInput: attach(out(uuidOf(find), "Health Samples")) });
-  const joined = act("text.combine", { UUID: uid(), WFTextSeparator: "New Lines", text: attach(out(uuidOf(details), prop)) });
-  return [[details, joined], text(out(uuidOf(joined), "Combined Text"))];
-};
-// v5: each sample's start time, so the server can merge sources hour by hour as the Health app does. A whole list of
-// dates becomes one line each with Format Date given the list in a text field (tried three ways on the owner's
-// iPhone, 2026-10-29; this is the one that worked).
-const STAMP = "yyyy-MM-dd HH:mm:ss";
-const startColumn = find => {
-  const details = act("properties.health.quantity", { UUID: uid(), CustomOutputName: "Start Date", WFContentItemPropertyName: "Start Date",
-    WFInput: attach(out(uuidOf(find), "Health Samples")) });
-  const fmt = act("format.date", { UUID: uid(), WFDate: text(out(uuidOf(details), "Start Date")), WFDateFormatStyle: "Custom",
-    WFDateFormat: STAMP, WFTimeFormatStyle: "None" });
-  const joined = act("text.combine", { UUID: uid(), WFTextSeparator: "New Lines", text: attach(out(uuidOf(fmt), "Formatted Date")) });
-  return [[details, fmt, joined], text(out(uuidOf(joined), "Combined Text"))];
-};
-
 // The last n days, today first, one upload per day: {v: 5, day, device, steps_values, steps_sources, steps_starts,
 // active_values, active_sources, active_units, active_starts}, each a column with one line per sample.
 // Each pass steps one day back from the variable Day End (tomorrow at first). "Subtract <Repeat Index> days" gave
@@ -178,18 +147,13 @@ function byDayBlock(n, post4) {
   const phone = act("getdevicedetails", { UUID: uid(), WFDeviceDetail: "Device Name" });
   const body = [end, start, day],
     fields = [["day", text(out(uuidOf(day), "Formatted Date"))], ["device", text(out(uuidOf(phone), "Device Details"))]];
-  for (const [key, label, props] of [["steps", "Steps", ["Value", "Source"]], ["active", "Active Calories", ["Value", "Source", "Unit"]]]) {
+  for (const [key, label] of [["steps", "Steps"], ["active", "Active Calories"]]) {
     // "in the last n+1 days" too: a plain bound Health can use before the day's own range
     const find = findSamples(label, n + 1, false, false, [between(out(uuidOf(start), "Adjusted Date"), out(uuidOf(end), "Adjusted Date"))]);
-    body.push(find);
-    for (const prop of props) {
-      const [acts, ref] = column(find, prop);
-      body.push(...acts);
-      fields.push([key + "_" + (prop === "Value" ? "values" : prop === "Source" ? "sources" : "units"), ref]);
-    }
-    const [acts, ref] = startColumn(find);
-    body.push(...acts);
-    fields.push([key + "_starts", ref]);
+    const [acts, cols] = columns(find, [[key + "_values", "Value"], [key + "_sources", "Source"],
+      ...(key === "active" ? [[key + "_units", "Unit"]] : []), [key + "_starts", "Start Date", STAMP]]);
+    body.push(find, ...acts);
+    fields.push(...cols);
   }
   body.push(post4(fields), setVar("Day End", out(uuidOf(start), "Adjusted Date")));
   const g = uid();
@@ -220,17 +184,19 @@ export function build() {
     WFHTTPBodyType: "JSON",
     WFJSONValues: dictItems([["v", text(v)], ...fields]),
   });
-  const post = vars => send("3", vars.map(k => [k.toLowerCase(), text(named(k))]));
-  const read = w => [
+  const read = w => {
     // the picker shows "Dietary Energy" but stores "Dietary Calories" (seen in the owner's re-shared Shortcut, 2026-10-28);
     // Fill Missing: days with nothing logged come back as 0 instead of a "No Samples Found" stop
-    ...healthBlock("Calories", "Dietary Calories", w.food, true, ["Start Date", "Value", "Unit"], DAY, true),
-    ...healthBlock("Weight", "Weight", w.food, false, ["Start Date", "Value", "Unit"], MIN),
-    ...healthBlock("Sleep", "Sleep", w.move, false, ["Start Date", "End Date", "Value", "Source"], MIN),
-    post(["Calories", "Weight", "Sleep"]),
-    // Steps and Active Calories: one upload per day, single samples with their devices (v4, byDayBlock)
-    ...byDayBlock(w.days, fields => send("5", fields)),
-  ];
+    const food = findSamples("Dietary Calories", w.food, true, true), weight = findSamples("Weight", w.food, false);
+    const sleep = findSamples("Sleep", w.move, false);
+    const [fa, ff] = columns(food, [["calories_days", "Start Date", DAY], ["calories_values", "Value"], ["calories_units", "Unit"]]);
+    const [wa, wf] = columns(weight, [["weight_starts", "Start Date", STAMP], ["weight_values", "Value"], ["weight_units", "Unit"]]);
+    const [sa, sf] = columns(sleep, [["sleep_starts", "Start Date", STAMP], ["sleep_ends", "End Date", STAMP],
+      ["sleep_values", "Value"], ["sleep_sources", "Source"]]);
+    return [food, ...fa, weight, ...wa, sleep, ...sa, send("5", [...ff, ...wf, ...sf]),
+      // Steps and Active Calories: one upload per day, single samples with their devices (byDayBlock)
+      ...byDayBlock(w.days, fields => send("5", fields))];
+  };
   const FIRST = { move: 30, food: 30, days: 30 }, DAILY = { move: 2, food: 7, days: 3 };
   const health = ifHasInput(read(FIRST), read(DAILY));
 
