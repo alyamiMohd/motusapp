@@ -192,8 +192,7 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
   const keys = posts.map(p => p.WFJSONValues.Value.WFDictionaryFieldValueItems.map(i => i.WFKey.Value.string).join("+")).join();
   const labels = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("filter.health.quantity"))
     .map(a => a.WFWorkflowActionParameters.WFContentItemFilter.Value.WFActionParameterFilterTemplates[0].Values.Enumeration.Value);
-  const T3 = k => ["starts", "ends"].flatMap(n => ["", "_b", "_c"].map(s => `${k}_${n}${s}`)).join("+");
-  const DAY4 = `v+day+steps_values+steps_sources+${T3("steps")}+active_values+active_sources+active_units+${T3("active")}`;
+  const DAY4 = "v+day+device+steps_values+steps_sources+steps_starts+active_values+active_sources+active_units+active_starts";
   const PARTS = "v+calories+weight+sleep," + DAY4;
   check("Shortcut sends food, weight and sleep, then each day's steps and energy, in both runs",
     keys === PARTS + "," + PARTS && posts.every(p => p.WFHTTPMethod === "POST"), keys);
@@ -221,12 +220,13 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
         r[2].Values.AnotherDate.Value.OutputName === "Adjusted Date" && r[2].Values.Date.Value.OutputUUID !== r[2].Values.AnotherDate.Value.OutputUUID; }));
   const cols = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("properties.health.quantity") && a.WFWorkflowActionParameters.WFInput.Value.OutputName === "Health Samples")
     .map(a => a.WFWorkflowActionParameters.WFContentItemPropertyName).join();
-  const COLS = "Value,Source,Start Date,End Date,Value,Source,Unit,Start Date,End Date";
-  check("v5: values, devices, energy units, start and end times as whole-list columns, no loop over samples", cols === COLS + "," + COLS, cols);
+  const COLS = "Value,Source,Start Date,Value,Source,Unit,Start Date";
+  check("v5: values, sources, energy units and start times as whole-list columns, no loop over samples", cols === COLS + "," + COLS, cols);
   const fmts = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("format.date") && a.WFWorkflowActionParameters.WFDateFormat === "yyyy-MM-dd HH:mm:ss");
-  check("v5: each time column three ways (Format Date given the list, given it as text, and a date format on the variable)",
-    fmts.length === 16 && fmts.filter(a => a.WFWorkflowActionParameters.WFDate.WFSerializationType === "WFTextTokenAttachment").length === 8 &&
-    JSON.stringify(acts).split("WFDateFormatVariableAggrandizement").length - 1 === 8);
+  const phones = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("getdevicedetails") && a.WFWorkflowActionParameters.WFDeviceDetail === "Device Name");
+  check("v5: start times through Format Date given the list as text (the way that worked), and this phone's name sent once per day",
+    fmts.length === 4 && fmts.every(a => a.WFWorkflowActionParameters.WFDate.WFSerializationType === "WFTextTokenString") &&
+    phones.length === 2 && !JSON.stringify(acts).includes("WFDateFormatVariableAggrandizement"));
   const open = (kind, mode) => ids.filter((id, i) => id.endsWith(kind) && acts[i].WFWorkflowActionParameters.WFControlFlowMode === mode).length;
   check("Shortcut: every If and Repeat is closed", open("conditional", 0) === open("conditional", 2) && open("repeat.each", 0) === open("repeat.each", 2) && open("repeat.each", 0) === 6 &&
     open("repeat.count", 0) === 2 && open("repeat.count", 2) === 2 && open("conditional", 0) === 3 && open("conditional", 1) === 1);
@@ -269,26 +269,28 @@ check("upload reader alone: nothing usable -> error", (() => { try { readHealthU
   check("v4: energy per device with kJ per sample (200 + 300 beats 150); an empty day is empty",
     d4["2026-10-28"].active_kcal === 500 && !Object.keys(readHealthUpload({ v: "4", day: "2026-10-27", steps_values: "", steps_sources: "" })).length);
   {
-    // v5: times too, merged like the Health app: Watch first, iPhone where the Watch has nothing, pro rata
+    // v5: start times too, merged like the Health app, hour by hour: in each hour only the top source with steps counts
     const day = (rows, extra = {}) => readHealthUpload({ v: "5", day: "2026-10-28",
       steps_values: rows.map(r => r[0]).join("\n"), steps_sources: rows.map(r => r[1]).join("\n"),
-      steps_starts: rows.map(r => "2026-10-28 " + r[2]).join("\n"), steps_ends: rows.map(r => "2026-10-28 " + r[3]).join("\n"), ...extra });
-    const walk = [[4500, "Mohd’s Apple Watch", "09:00:00", "10:00:00"], [3000, "Mo’s iPhone", "09:00:00", "10:00:00"],
-                  [2000, "Mo’s iPhone", "18:00:00", "18:30:00"]];
-    check("v5: the same walk counts once, from the Watch; the iPhone fills the evening the Watch missed (4,500 + 2,000)",
+      steps_starts: rows.map(r => "2026-10-28 " + r[2]).join("\n"), ...extra });
+    const walk = [[4500, "Mohd’s Apple Watch", "09:00:00"], [3000, "Mo’s iPhone", "09:05:00"], [2000, "Mo’s iPhone", "18:00:00"]];
+    check("v5: the same walk counts once, from the Watch; the iPhone fills the evening hour the Watch left empty (4,500 + 2,000)",
       day(walk)["2026-10-28"].steps === 6500, JSON.stringify(day(walk)));
-    check("v5: an iPhone sample half under the Watch counts half (4,500 + 600)",
-      day([[4500, "Apple Watch", "09:00:00", "10:00:00"], [1200, "iPhone", "09:30:00", "10:30:00"]])["2026-10-28"].steps === 5100);
-    check("v5: a ring or an app only fills where neither Watch nor iPhone counted",
-      day([[1000, "iPhone", "08:00:00", "09:00:00"], [900, "Ultrahuman", "08:00:00", "09:00:00"], [300, "Ultrahuman", "22:00:00", "22:10:00"]])["2026-10-28"].steps === 1300);
+    check("v5: in an hour the Watch has steps, the iPhone's don't count, even late in that hour; the next hour's do (4,500 + 100)",
+      day([[4500, "Apple Watch", "09:00:00"], [1200, "iPhone", "09:59:00"], [100, "iPhone", "10:00:00"]])["2026-10-28"].steps === 4600);
+    check("v5: an app (HUAWEI Health) only fills hours the phone left empty; the phone called iMone is known by `device`",
+      day([[300, "iMone", "08:10:00"], [900, "HUAWEI Health: Global", "08:20:00"], [200, "HUAWEI Health: Global", "22:00:00"]],
+        { device: "iMone" })["2026-10-28"].steps === 500 &&
+      day([[300, "iMone", "08:10:00"], [900, "HUAWEI Health: Global", "08:20:00"], [200, "HUAWEI Health: Global", "22:00:00"]])["2026-10-28"].steps === 1100);
+    check("v5: entries made in the Health app itself come first",
+      day([[5000, "Health", "12:00:00"], [800, "Apple Watch", "12:30:00"]])["2026-10-28"].steps === 5000);
     const bad = day(walk, { steps_starts: "Oct 28, 2026 at 9:00 AM\n\n" });
-    check("v5: times that didn't arrive as lines: the busiest device counts, as in v4 (5,000)", bad["2026-10-28"].steps === 5000, JSON.stringify(bad));
-    const viaC = day(walk, { steps_starts: "", steps_ends: "", steps_starts_c: walk.map(r => "2026-10-28 " + r[2]).join("\n"),
-      steps_ends_c: walk.map(r => "2026-10-28 " + r[3]).join("\n") });
-    check("v5: the first of the three time columns that lines up is used", viaC["2026-10-28"].steps === 6500);
+    check("v5: times that didn't arrive as lines: the busiest source counts, as in v4 (5,000)", bad["2026-10-28"].steps === 5000, JSON.stringify(bad));
+    const viaB = day(walk, { steps_starts: "", steps_starts_b: walk.map(r => "2026-10-28 " + r[2]).join("\n") });
+    check("v5: start times from the first v5 Shortcut (steps_starts_b) are read too", viaB["2026-10-28"].steps === 6500);
     const many = [];
     for (let i = 0; i < 1500; i++) many.push([20 + (i % 30), ["Apple Watch", "iPhone", "Ultrahuman"][i % 3],
-      `${String(6 + (i % 16)).padStart(2, "0")}:${String(i % 60).padStart(2, "0")}:00`, `${String(6 + (i % 16)).padStart(2, "0")}:${String(i % 60).padStart(2, "0")}:50`]);
+      `${String(6 + (i % 16)).padStart(2, "0")}:${String(i % 60).padStart(2, "0")}:00`]);
     day(many);
     const t0 = performance.now(); day(many); const ms = performance.now() - t0;
     console.log(`    (a 1,500-sample day merged in ${ms.toFixed(1)} ms)`);

@@ -149,27 +149,21 @@ const column = (find, prop) => {
   const joined = act("text.combine", { UUID: uid(), WFTextSeparator: "New Lines", text: attach(out(uuidOf(details), prop)) });
   return [[details, joined], text(out(uuidOf(joined), "Combined Text"))];
 };
-// v5: each sample's start and end time, so the server can merge devices minute by minute as the Health app does.
-// Which way this iPhone turns a whole list of dates into lines isn't known yet, so each time column comes three ways
-// and the server uses the first that lines up with the values: "" = Format Date given the list itself, "_b" = given
-// it in a text field, "_c" = Combine Text with the date format on the variable. Keep the winner, drop the rest.
+// v5: each sample's start time, so the server can merge sources hour by hour as the Health app does. A whole list of
+// dates becomes one line each with Format Date given the list in a text field (tried three ways on the owner's
+// iPhone, 2026-10-29; this is the one that worked).
 const STAMP = "yyyy-MM-dd HH:mm:ss";
-const timeColumns = (find, prop) => {
-  const details = act("properties.health.quantity", { UUID: uid(), CustomOutputName: prop, WFContentItemPropertyName: prop,
+const startColumn = find => {
+  const details = act("properties.health.quantity", { UUID: uid(), CustomOutputName: "Start Date", WFContentItemPropertyName: "Start Date",
     WFInput: attach(out(uuidOf(find), "Health Samples")) });
-  const list = out(uuidOf(details), prop);
-  const fmt = date => act("format.date", { UUID: uid(), WFDate: date, WFDateFormatStyle: "Custom", WFDateFormat: STAMP, WFTimeFormatStyle: "None" });
-  const lines = ref => act("text.combine", { UUID: uid(), WFTextSeparator: "New Lines", text: attach(ref) });
-  const a = fmt(attach(list)), b = fmt(text(list));
-  const ja = lines(out(uuidOf(a), "Formatted Date")), jb = lines(out(uuidOf(b), "Formatted Date"));
-  const jc = lines(out(uuidOf(details), prop, { Aggrandizements: [{ Type: "WFDateFormatVariableAggrandizement",
-    WFDateFormatStyle: "Custom", WFDateFormat: STAMP, WFTimeFormatStyle: "None" }] }));
-  return [[details, a, ja, b, jb, jc], [["", ja], ["_b", jb], ["_c", jc]].map(([s, j]) => [s, text(out(uuidOf(j), "Combined Text"))])];
+  const fmt = act("format.date", { UUID: uid(), WFDate: text(out(uuidOf(details), "Start Date")), WFDateFormatStyle: "Custom",
+    WFDateFormat: STAMP, WFTimeFormatStyle: "None" });
+  const joined = act("text.combine", { UUID: uid(), WFTextSeparator: "New Lines", text: attach(out(uuidOf(fmt), "Formatted Date")) });
+  return [[details, fmt, joined], text(out(uuidOf(joined), "Combined Text"))];
 };
 
-// The last n days, today first, one upload per day: {v: 5, day, steps_values, steps_sources, steps_starts*,
-// steps_ends*, active_values, active_sources, active_units, active_starts*, active_ends*}, each a column with one line
-// per sample (* three ways, see timeColumns).
+// The last n days, today first, one upload per day: {v: 5, day, device, steps_values, steps_sources, steps_starts,
+// active_values, active_sources, active_units, active_starts}, each a column with one line per sample.
 // Each pass steps one day back from the variable Day End (tomorrow at first). "Subtract <Repeat Index> days" gave
 // three empty days on the owner's iPhone (the variable amount seems not to count), so every step is a fixed 1 day.
 function byDayBlock(n, post4) {
@@ -180,7 +174,10 @@ function byDayBlock(n, post4) {
   const start = adjust(out(uuidOf(end), "Adjusted Date"), "Subtract");
   const day = act("format.date", { UUID: uid(), WFDate: text(out(uuidOf(start), "Adjusted Date")),
     WFDateFormatStyle: "Custom", WFDateFormat: DAY, WFTimeFormatStyle: "None" });
-  const body = [end, start, day], fields = [["day", text(out(uuidOf(day), "Formatted Date"))]];
+  // this phone's own name: Health ranks phones above apps, and a phone called something like "iMone" doesn't say so
+  const phone = act("getdevicedetails", { UUID: uid(), WFDeviceDetail: "Device Name" });
+  const body = [end, start, day],
+    fields = [["day", text(out(uuidOf(day), "Formatted Date"))], ["device", text(out(uuidOf(phone), "Device Details"))]];
   for (const [key, label, props] of [["steps", "Steps", ["Value", "Source"]], ["active", "Active Calories", ["Value", "Source", "Unit"]]]) {
     // "in the last n+1 days" too: a plain bound Health can use before the day's own range
     const find = findSamples(label, n + 1, false, false, [between(out(uuidOf(start), "Adjusted Date"), out(uuidOf(end), "Adjusted Date"))]);
@@ -190,15 +187,13 @@ function byDayBlock(n, post4) {
       body.push(...acts);
       fields.push([key + "_" + (prop === "Value" ? "values" : prop === "Source" ? "sources" : "units"), ref]);
     }
-    for (const [prop, name] of [["Start Date", "starts"], ["End Date", "ends"]]) {
-      const [acts, refs] = timeColumns(find, prop);
-      body.push(...acts);
-      for (const [suffix, ref] of refs) fields.push([key + "_" + name + suffix, ref]);
-    }
+    const [acts, ref] = startColumn(find);
+    body.push(...acts);
+    fields.push([key + "_starts", ref]);
   }
   body.push(post4(fields), setVar("Day End", out(uuidOf(start), "Adjusted Date")));
   const g = uid();
-  return [now, today, tomorrow, setVar("Day End", out(uuidOf(tomorrow), "Adjusted Date")),
+  return [now, today, tomorrow, phone, setVar("Day End", out(uuidOf(tomorrow), "Adjusted Date")),
     act("repeat.count", { GroupingIdentifier: g, WFControlFlowMode: 0, WFRepeatCount: n, UUID: uid() }),
     ...body,
     act("repeat.count", { GroupingIdentifier: g, WFControlFlowMode: 2, UUID: uid() })];

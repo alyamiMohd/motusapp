@@ -80,96 +80,27 @@ const toKg = (v, unit) => { const u = UNIT.find(([re]) => re.test(String(unit ||
 
 // v4/v5: one day of single samples, values and their devices in parallel columns, one line per sample. The device
 // names are used only here, never stored.
-// v5 adds each sample's start and end, and then the devices are merged as the Health app merges them: time is cut at
-// every sample's start and end, and each piece goes to the highest-priority device that has a sample over it (Health's
-// default order: Apple Watch, then iPhone, then apps; ties: the busier device that day), whose sample counts for the
-// share of its length that the piece is. Without usable times (v4, or a time column that didn't arrive as lines),
-// each device is added up and the busiest one counts.
+// v5 adds each sample's start time, and then the devices are merged the way the Health app merges them, hour by hour:
+// in each clock hour only the highest-priority source with any sample starting in that hour counts, so a lower one
+// (HUAWEI Health below the phone, say) only fills hours the higher one left empty. Found on the owner's phone,
+// 2026-10-29: this gives Health's own 6,632 / 4,485 (Health 4,491) / 4,481, where cutting at every sample's start and
+// end (7,524 / 7,780 / 4,563) and dropping only overlapping samples (6,632 / 6,767 / 4,508) don't.
+// The order is Health's default: its own entries ("Health"), Apple Watches, phones (a name with "iPhone", or the
+// phone the Shortcut runs on, which it sends as `device`: the owner's is called "iMone"), then apps; within the same
+// kind the busier source that day first. Without usable times (v4), each source is added up and the busiest counts.
 const toKcal = (n, u) => (/^(kj|كج)/i.test(String(u || "").trim()) ? n / 4.184 : n);
-const RANK = s => (/watch/i.test(s) ? 0 : /iphone/i.test(s) ? 1 : 2);
-function defaultOrder(samples) {
+const kind = (s, phone) => (s === "Health" ? 0 : /watch/i.test(s) ? 1 : /iphone/i.test(s) || (phone && s === phone) ? 2 : 3);
+export function healthOrder(samples, phone) {
   const busy = {};
   for (const s of samples) busy[s.src] = (busy[s.src] || 0) + s.v;
-  return Object.keys(busy).sort((x, y) => RANK(x) - RANK(y) || busy[y] - busy[x]);
+  return Object.keys(busy).sort((x, y) => kind(x, phone) - kind(y, phone) || busy[y] - busy[x]);
 }
-// order: device names, highest priority first (default: Watch, iPhone, others; ties the busier first)
-export function mergeLikeHealth(samples, order = defaultOrder(samples)) {      // [{ a, b (minutes), v, src }] -> total
-  const pri = Object.fromEntries(order.map((s, i) => [s, i]));
-  const spans = samples.filter(s => s.b > s.a).sort((x, y) => x.a - y.a), points = samples.filter(s => s.b <= s.a);
-  const cuts = [...new Set(spans.flatMap(s => [s.a, s.b]))].sort((x, y) => x - y);
-  let total = 0, next = 0, live = [];
-  for (let i = 0; i + 1 < cuts.length; i++) {
-    const lo = cuts[i], hi = cuts[i + 1];
-    while (next < spans.length && spans[next].a <= lo) live.push(spans[next++]);
-    let n = 0;                                          // drop what ended; every cut is a boundary, so the rest covers [lo, hi]
-    for (const s of live) if (s.b > lo) live[n++] = s;
-    live.length = n;
-    let best = Infinity;
-    for (const s of live) if (pri[s.src] < best) best = pri[s.src];
-    if (best === Infinity) continue;
-    for (const s of live) if (pri[s.src] === best) total += s.v * (hi - lo) / (s.b - s.a);
-  }
-  // a sample with no length counts unless a higher-priority device covers that moment
-  for (const s of points) if (!spans.some(o => pri[o.src] < pri[s.src] && o.a <= s.a && s.a < o.b)) total += s.v;
-  return total;
-}
-// Another reading of Health's rule: devices in priority order, and a sample of a lower one counts only if it touches
-// no sample already taken from a higher one (dropped whole, not in part).
-export function mergeDropOverlaps(samples, order = defaultOrder(samples)) {
-  const taken = [];
+export function mergeLikeHealth(samples, phone) {          // [{ a (start, in minutes), v, src }] -> the day's total
+  const pri = Object.fromEntries(healthOrder(samples, phone).map((s, i) => [s, i])), best = new Map();
+  for (const s of samples) { const h = Math.floor(s.a / 60); if (!(best.get(h) <= pri[s.src])) best.set(h, pri[s.src]); }
   let total = 0;
-  for (const src of order) {
-    const mine = samples.filter(s => s.src === src);
-    const ok = mine.filter(s => !taken.some(t => s.a < Math.max(t.b, t.a + 1e-9) && t.a < Math.max(s.b, s.a + 1e-9)));
-    for (const s of ok) total += s.v;
-    taken.push(...ok);                                    // after the device, so its own samples don't block each other
-  }
+  for (const s of samples) if (best.get(Math.floor(s.a / 60)) === pri[s.src]) total += s.v;
   return total;
-}
-// Another: the day cut into stretches of `size` minutes; in each, only the highest-priority device with any sample
-// starting there counts (all its samples there), lower ones only in stretches it left empty.
-export function mergeBuckets(samples, order, size) {
-  const pri = Object.fromEntries(order.map((s, i) => [s, i])), best = new Map();
-  for (const s of samples) { const k = Math.floor(s.a / size); if (!(best.get(k) <= pri[s.src])) best.set(k, pri[s.src]); }
-  let total = 0;
-  for (const s of samples) if (best.get(Math.floor(s.a / size)) === pri[s.src]) total += s.v;
-  return total;
-}
-// TEMPORARY (2026-10-29): every candidate total for a v5 day, for the upload log, to find which one the Health app
-// shows. Remove once chosen.
-export function dayCandidates(p, field = "steps") {
-  const col = t => String(t || "").split(/\r?\n/);
-  const sources = col(p[field + "_sources"]), units = col(p[field + "_units"]), samples = [];
-  col(p[field + "_values"]).forEach((v, i) => {
-    const n = num(v);
-    if (n != null) samples.push({ i, v: field === "active" ? toKcal(n, units[i]) : n, src: (sources[i] || "").trim() || "?" });
-  });
-  const out = { variant: "none" };
-  for (const sfx of ["", "_b", "_c"]) {
-    const st = col(p[field + "_starts" + sfx]), en = col(p[field + "_ends" + sfx]);
-    if (samples.length && samples.every(s => (s.a = stampMins(st[s.i] || "")) != null && (s.b = stampMins(en[s.i] || "")) != null)) {
-      out.variant = sfx || "_a";
-      break;
-    }
-  }
-  const bySrc = {};
-  for (const s of samples) bySrc[s.src] = (bySrc[s.src] || 0) + s.v;
-  out.max = Math.round(Math.max(0, ...Object.values(bySrc)));
-  out.watch = Math.round(samples.filter(s => RANK(s.src) === 0).reduce((t, s) => t + s.v, 0));
-  // devices numbered by total, busiest first, with their kind only (never the name)
-  const names = Object.keys(bySrc).sort((x, y) => bySrc[y] - bySrc[x]);
-  out.devices = names.map((n, i) => `${i + 1}:${Math.round(bySrc[n])}:${["watch", "iphone", "other"][RANK(n)]}`).join(" ");
-  if (out.variant !== "none") {
-    // every priority order of the (up to 3 busiest) devices, the rest after them
-    const top = names.slice(0, 3), perms = a => (a.length < 2 ? [a] : a.flatMap((x, i) => perms([...a.slice(0, i), ...a.slice(i + 1)]).map(r => [x, ...r])));
-    for (const perm of perms(top)) {
-      const order = [...perm, ...names.slice(3)], key = perm.map(n => names.indexOf(n) + 1).join("");
-      out["drop" + key] = Math.round(mergeDropOverlaps(samples, order));
-      out["prorata" + key] = Math.round(mergeLikeHealth(samples, order));
-      for (const size of [5, 15, 30, 60]) out[`m${size}_${key}`] = Math.round(mergeBuckets(samples, order, size));
-    }
-  }
-  return out;
 }
 // "yyyy-MM-dd HH:mm[:ss]" -> minutes, quickly: a day's thousand samples share one date, converted (Hijri too) once
 const STAMP = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/;
@@ -191,19 +122,12 @@ function fromShortcutDay(p) {
       const n = num(v);
       if (n != null) samples.push({ i, v: energy ? toKcal(n, units[i]) : n, src: (sources[i] || "").trim() || "?" });
     });
-    // the first of the three time columns whose every line is a time
-    let times = null;
-    for (const sfx of ["", "_b", "_c"]) {
-      const st = col(p[field + "_starts" + sfx]), en = col(p[field + "_ends" + sfx]), a = [], b = [];
-      if (!samples.every(s => (a[s.i] = stampMins(st[s.i] || "")) != null && (b[s.i] = stampMins(en[s.i] || "")) != null)) continue;
-      times = [a, b];
-      break;
-    }
+    // the start times: one line per sample (older Shortcuts sent them three ways; the second was the one that worked)
+    const starts = ["", "_b"].map(sfx => col(p[field + "_starts" + sfx]))
+      .find(st => samples.every(s => (s.a = stampMins(st[s.i] || "")) != null));
     let best;
-    if (samples.length && times) {
-      for (const s of samples) { s.a = times[0][s.i]; s.b = times[1][s.i]; }
-      best = mergeLikeHealth(samples);
-    } else {
+    if (samples.length && starts) best = mergeLikeHealth(samples, String(p.device || "").trim());
+    else {
       const bySrc = {};
       for (const s of samples) bySrc[s.src] = (bySrc[s.src] || 0) + s.v;
       best = Math.max(0, ...Object.values(bySrc));

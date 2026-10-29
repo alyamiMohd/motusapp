@@ -12,7 +12,7 @@
 import { start, verify, logout, sessionUser } from "./auth.js";
 import * as hevy from "./hevy.js";
 import { mergeSource } from "../public/js/merge.js";
-import { readHealthUpload, HIJRI_EXACT, dayCandidates } from "../public/js/health.js";
+import { readHealthUpload, HIJRI_EXACT } from "../public/js/health.js";
 import { sha256, token, allow, json, fail } from "./util.js";
 
 const DEVICE_SOURCES = ["manual", "apple", "mfp", "csv", "hevy", "strong"];
@@ -184,15 +184,10 @@ async function upload(req, env) {
       const lines = f => String(payload[k + "_" + f] || "").split(/\r?\n/).filter(Boolean);
       const v = lines("values"), s = lines("sources");
       shape[k] = `${v.length} samples${v.length === s.length ? "" : ` but ${s.length} sources`}, ${new Set(s).size} devices`;
-      // v5: the three ways the times came, as line counts and the first line with digits and letters masked
-      if (+payload.v >= 5) shape[k] += "; times " + ["", "_b", "_c"].map(sfx => {
-        const t = lines("starts" + sfx);
-        return (sfx || "_a") + " " + t.length + " " + (t[0] || "").replace(/[0-9٠-٩]/g, "9").replace(/[^\s9:.\-/]/g, "a").slice(0, 24);
-      }).join(", ");
+      // v5: whether the start times line up with the samples
+      if (+payload.v >= 5) shape[k] += `, ${lines("starts").length || lines("starts_b").length} start times`;
     }
     console.log("upload shape:", JSON.stringify(shape), "| hijri exact:", HIJRI_EXACT);
-    // TEMPORARY: the candidate step totals for one day, to match the Health app (the owner asked for its exact numbers)
-    if (+payload.v >= 5) console.log("day candidates:", String(payload.day || "").slice(0, 10), JSON.stringify(dayCandidates(payload)));
   }
   if (!Object.keys(days).length) {
     // v3 sends in parts; a part with nothing in the window (no energy recorded in 2 days, say) is fine
