@@ -147,8 +147,8 @@
 ## 2026-10-29 (UTC+03) | Session 2, continued | Friends and Standards inside the profile | commit ff2c224
 **User asked:** "make friends and any social thing only appears when you click on your profile, also standards the same thing, part of your profile"
 **Claude did:** D-040. Menu = Home, Workouts (with a tracker), Weeks, Connect + the profile button. Profile: Friends row ("N asking to be friends"), who can see your dashboard, share, Standards (always open, also signed out), account. `initNav(active)` no longer draws Standards; `initStandards(container)` in core.js. Green dot on the profile button when someone asks (`/api/me.requests`; friend changes bump both users' `changed` so the ETag refresh carries it). Friends page has "‹ Profile". 2 new server checks (299 total). Checked on wrangler dev at 393/320: dot appears, Profile shows "1 asking", accept clears the dot, Standards change saved, signed-out Profile shows sign-in + Standards, no sideways scroll.
-**Not done:** deploy (needs the owner's OK).
+**Deployed** with the default-picture change on "Yes, deploy" (version a0304dc6); checked live: menu Home/Weeks/Connect, Profile has Friends row + Standards, files identical to the repo, no sideways scroll at 393 px.
 
 ## 2026-10-29 (UTC+03) | Session 2, continued | default profile picture
 **User asked:** "and make the default profile picture, close to the logo"
-**Claude did:** `.mark` (style.css): the cape mark (brand/mark.png at 150%, centred) on a dark circle replaces the initial on the menu button, Profile, Friends rows and /u/<username>; signed out the menu button keeps the person outline. Checked on wrangler dev at 393 px. Not deployed (with ff2c224, waiting for the owner's OK).
+**Claude did:** `.mark` (style.css): the cape mark (brand/mark.png at 150%, centred) on a dark circle replaces the initial on the menu button, Profile, Friends rows and /u/<username>; signed out the menu button keeps the person outline. Checked on wrangler dev at 393 px. Deployed with ff2c224 as version a0304dc6.
