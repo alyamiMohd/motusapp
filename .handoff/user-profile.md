@@ -45,6 +45,8 @@ Carried over from the `motus` handoff (sessions of 2026-10-21 to 2026-10-24) and
 - 2026-10-29 "Remove most of the non sense, make it mostly depend on the integrations": fewer options, one clear way per app; people shouldn't see screens whose purpose isn't obvious ("people see multiple circles not knowing the intent of it").
 - Rejected a small cosmetic refactor mid-task (2026-10-28) (inferred: don't touch working code that isn't part of the request).
 
+- 2026-10-29 "make it clean looking and not too much text, my audience hates text as part of their adhd, don't do too much of it": every page short; icons and one or two words; explanations only where a step needs them.
+
 ## Environment
 - Windows 11 laptop, Claude desktop app (Git Bash + PowerShell), iPhone with Shortcuts and Apple Health. Timezone Asia/Riyadh (UTC+3). Python 3.10 and Node 24 on this laptop.
 - Accounts (names only): GitHub `alyamiMohd` (`gh` signed in), Hevy Pro, MyFitnessPal, the Health Exporter iPhone app, Cloudflare (free; workers.dev subdomain `motusapp`), Google (Apps Script "Motus sign-in" sends the codes), Resend (paused by Resend), Brevo (abandoned at phone verification).
