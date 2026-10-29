@@ -165,4 +165,4 @@
 
 ## 2026-10-29 (UTC+03) | Session 2, continued | blur without hard edges
 **User asked:** (screenshot) "Behind the blur, it shows as if it's a cutoff image, fix that"
-**Claude did:** removed the ::before backdrop-blur and ::after overlay (their box showed a rectangle's edge) and the clipping at the page padding; the sample now sits in one `.sample` (index.html, weeks.html), blurred 5px and faded by a mask in fixed px (black by 500 px; board max-height 560 px), the board reaching 16 px past the padding. Checked on wrangler dev at 800 px and 393 px: no edges. Pushed; deploy waiting for the owner's OK.
+**Claude did:** removed the ::before backdrop-blur and ::after overlay (their box showed a rectangle's edge) and the clipping at the page padding; the sample now sits in one `.sample` (index.html, weeks.html), blurred 5px and faded by a mask in fixed px (black by 500 px; board max-height 560 px), the board reaching 16 px past the padding. Checked on wrangler dev at 800 px and 393 px: no edges. Deployed on "Yes, deploy" as version 182baa84; checked live: style.css, index.html, weeks.html identical to the repo; Data page fades with no edges.
