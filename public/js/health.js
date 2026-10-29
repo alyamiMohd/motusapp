@@ -110,6 +110,47 @@ export function mergeLikeHealth(samples) {      // [{ a, b (minutes), v, src }] 
   for (const s of points) if (!spans.some(o => pri[o.src] < pri[s.src] && o.a <= s.a && s.a < o.b)) total += s.v;
   return total;
 }
+// Another reading of Health's rule: devices in priority order, and a sample of a lower one counts only if it touches
+// no sample already taken from a higher one (dropped whole, not in part).
+export function mergeDropOverlaps(samples) {
+  const busy = {};
+  for (const s of samples) busy[s.src] = (busy[s.src] || 0) + s.v;
+  const order = Object.keys(busy).sort((x, y) => RANK(x) - RANK(y) || busy[y] - busy[x]);
+  const taken = [];
+  let total = 0;
+  for (const src of order) {
+    const mine = samples.filter(s => s.src === src);
+    const ok = mine.filter(s => !taken.some(t => s.a < Math.max(t.b, t.a + 1e-9) && t.a < Math.max(s.b, s.a + 1e-9)));
+    for (const s of ok) total += s.v;
+    taken.push(...mine);                                  // the whole device, so its own samples don't block each other
+  }
+  return total;
+}
+// TEMPORARY (2026-10-29): every candidate total for a v5 day, for the upload log, to find which one the Health app
+// shows. Remove once chosen.
+export function dayCandidates(p, field = "steps") {
+  const col = t => String(t || "").split(/\r?\n/);
+  const sources = col(p[field + "_sources"]), units = col(p[field + "_units"]), samples = [];
+  col(p[field + "_values"]).forEach((v, i) => {
+    const n = num(v);
+    if (n != null) samples.push({ i, v: field === "active" ? toKcal(n, units[i]) : n, src: (sources[i] || "").trim() || "?" });
+  });
+  const out = { variant: "none" };
+  for (const sfx of ["", "_b", "_c"]) {
+    const st = col(p[field + "_starts" + sfx]), en = col(p[field + "_ends" + sfx]);
+    if (samples.length && samples.every(s => (s.a = stampMins(st[s.i] || "")) != null && (s.b = stampMins(en[s.i] || "")) != null)) {
+      out.variant = sfx || "_a";
+      break;
+    }
+  }
+  const bySrc = {};
+  for (const s of samples) bySrc[s.src] = (bySrc[s.src] || 0) + s.v;
+  out.max = Math.round(Math.max(0, ...Object.values(bySrc)));
+  out.watch = Math.round(samples.filter(s => RANK(s.src) === 0).reduce((t, s) => t + s.v, 0));
+  out.devices = Object.values(bySrc).map(Math.round).sort((x, y) => y - x).join("+");
+  if (out.variant !== "none") { out.prorata = Math.round(mergeLikeHealth(samples)); out.drop = Math.round(mergeDropOverlaps(samples)); }
+  return out;
+}
 // "yyyy-MM-dd HH:mm[:ss]" -> minutes, quickly: a day's thousand samples share one date, converted (Hijri too) once
 const STAMP = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/;
 const DAY_MINS = new Map();
