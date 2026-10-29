@@ -56,8 +56,10 @@ function ifHasInput(body, otherwise) {   // If Shortcut Input has any value … 
   ];
 }
 
-// source: a variable holding one source's name, for an extra "Source is …" row (the picker lists the phone's own
-// sources, and takes a variable instead)
+// source: a variable holding one source's name. "Source is" is a picker of the phone's own sources and fails at run
+// time when a variable fills it (seen on the owner's iPhone, 2026-10-29), so the name is matched as text instead:
+// begins with it AND ends with it, which only the name itself does in practice ("contains" would also take
+// "Mo's iPhone" for "iPhone").
 function findSamples(label, days, groupByDay, fillMissing = false, source) {
   const p = {
     UUID: uid(),
@@ -70,7 +72,8 @@ function findSamples(label, days, groupByDay, fillMissing = false, source) {
             Values: { Enumeration: { Value: label, WFSerializationType: "WFStringSubstitutableState" } } },
           { Bounded: true, Operator: 1001, Property: "Start Date", Removable: false,
             Values: { Number: String(days), Unit: 16 } },
-          ...(source ? [{ Bounded: true, Operator: 4, Property: "Source", Removable: true, Values: { Enumeration: attach(source) } }] : []),
+          ...(source ? [8, 9].map(op => ({ Bounded: true, Operator: op, Property: "Source", Removable: true,   // begins / ends with
+            Values: { String: text(source) } })) : []),
         ],
       },
       WFSerializationType: "WFContentPredicateTableTemplate",

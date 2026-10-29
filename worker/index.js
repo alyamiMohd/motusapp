@@ -163,7 +163,11 @@ async function upload(req, env) {
     for (const k of ["steps", "calories", "active", "weight", "sleep"]) {
       if (typeof payload[k] !== "string") { shape[k] = typeof payload[k]; continue; }
       const ls = payload[k].split(/\r?\n/).filter(Boolean), first = (ls[0] || "").split("|");
-      shape[k] = ls.length + ": " + first.map((f, i) => (k !== "sleep" && i === 2 ? f : f.replace(/[0-9٠-٩]/g, "9").replace(/[^\s9|:.,\-]/g, "a"))).join("|");
+      // field 2 is a unit, except in v2 steps, where it is a device name: masked then
+      const keep = i => k !== "sleep" && i === 2 && !(k === "steps" && +payload.v === 2);
+      shape[k] = ls.length + ": " + first.map((f, i) => (keep(i) ? f : f.replace(/[0-9٠-٩]/g, "9").replace(/[^\s9|:.,\-]/g, "a"))).join("|");
+      // v3 numbers its sources: how many there were (a count, no names)
+      if (+payload.v >= 3 && (k === "steps" || k === "active")) shape[k] += ` (${new Set(ls.map(l => l.slice(l.lastIndexOf("|") + 1))).size} sources)`;
     }
     console.log("upload shape:", JSON.stringify(shape), "| hijri exact:", HIJRI_EXACT);
   }

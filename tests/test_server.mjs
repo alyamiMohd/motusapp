@@ -196,8 +196,11 @@ check("unknown API path: 404", (await call("GET", "/api/nope", { cookie: sara })
   check("v3: steps, food and active energy are day totals (food and active energy fill missing days); weight and sleep raw",
     grouped === "-,Day,Day+,Day+,-,-,-,Day,Day+,Day+,-,-", grouped);
   const bySource = finds.filter(p => p.WFContentItemFilter.Value.WFActionParameterFilterTemplates.some(r => r.Property === "Source"));
-  check("v3: steps and active energy are read one source at a time (Source is Repeat Item)", bySource.length === 4 && bySource.every(p =>
-    JSON.stringify(p.WFContentItemFilter.Value.WFActionParameterFilterTemplates[2].Values.Enumeration.Value) === '{"Type":"Variable","VariableName":"Repeat Item"}'));
+  const asText = r => r.Values.String.WFSerializationType === "WFTextTokenString" &&
+    JSON.stringify(Object.values(r.Values.String.Value.attachmentsByRange)) === '[{"Type":"Variable","VariableName":"Repeat Item"}]';
+  check("v3: steps and active energy are read one source at a time (Source begins with and ends with Repeat Item, as text)",
+    bySource.length === 4 && bySource.every(p => { const rows = p.WFContentItemFilter.Value.WFActionParameterFilterTemplates.slice(2);
+      return p.WFContentItemFilter.Value.WFActionParameterFilterPrefix === 1 && rows.map(r => r.Operator).join() === "8,9" && rows.every(asText); }));
   const nested = acts.filter(a => a.WFWorkflowActionIdentifier.endsWith("properties.health.quantity") &&
     a.WFWorkflowActionParameters.WFInput.Value.VariableName === "Repeat Item 2").length;
   check("v3: inside the per-source loop, the day comes from the inner loop's Repeat Item 2", nested === 10, nested);
