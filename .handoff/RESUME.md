@@ -2,7 +2,7 @@
 
 **Project:** Motus (public app): a fitness dashboard anyone can use. Sign in with an emailed code, connect Hevy and Apple Health once, and it stays up to date by itself; files can also be imported; demo data until then.
 **Repo:** https://github.com/alyamiMohd/motusapp (public, `main`). **Live (with accounts): https://motus.motusapp.workers.dev** (Cloudflare: account subdomain `motusapp`, Worker `motus`, D1 `motus` id 4757ecc4-340b-41d4-a641-1f742da8af25, region WEUR, cron every 30 min). Pages without accounts: https://alyamimohd.github.io/motusapp/ (its Connect page links to the live app).
-**Last updated:** 2026-10-29 16:35 (UTC+03, Riyadh) · last code commit `e1c16d5`, deployed as version cc57c6ea (no temporary files any more)
+**Last updated:** 2026-10-29 16:50 (UTC+03, Riyadh) · last code commit `0ddfc1b`, deployed as version c8367667
 **Obsolete:** `alyamiMohd/motus-sync` (template for the earlier GitHub-copy sync, rejected as onboarding); its copies would fail now. Ask the owner before archiving/deleting it.
 
 ## Instructions for Claude
@@ -27,6 +27,7 @@
 - Tests: 215 checks pass (core 43, importers 65, store 20, server 87).
 
 ## Next action
+**Done 2026-10-29:** Motus runs the Shortcut itself when opened on an iPhone and Health is 12+ h old (x-callback-url, back with ?health=updated|cancelled|failed, at most every 30 min); Connect has Update now; the owner tested Update now: it ran and came back with "Updated from Apple Health". D-033. The automation is optional now.
 The daily automation on the owner's iPhone (Shortcuts → Automation → Time of Day → Daily → Run Immediately → Motus) and a check the next morning; then remove the upload-shape log; decide whether to keep the testing certificate (GitHub secrets `MOTUS_SIGN_*`, expires 28 Nov; the owner can remove the profile from the iPhone now). Open data questions: 3 sleep nights over 11 h (10, 16, 20 Oct), 29 Sep's doubled leftover (delete only with the owner's yes). To ship a new Shortcut version: build → sign (testing cert) → `public/setup/` + TEMPORARY `_headers` → owner tests → owner shares iCloud link → swap the link, remove setup.
 
 ## Open questions waiting on the owner

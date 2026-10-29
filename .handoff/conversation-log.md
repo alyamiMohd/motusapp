@@ -123,3 +123,7 @@
 ## 2026-10-29 16:35 (UTC+03) | Session 1, continued | v5.4 for everyone | commit e1c16d5
 **User:** sent https://www.icloud.com/shortcuts/d49da9d79d1e49bca0092a4fdd53ef07.
 **Claude did:** read the iCloud record and its unsigned plist (141 actions, v5.4 features present), set it as `SHORTCUT_URL` and in shortcut.html, removed `/setup/` and the temporary headers, deployed and checked live (setup 404, new link served).
+
+## 2026-10-29 16:50 (UTC+03) | Session 1, continued | Health updates itself on opening Motus | commit 0ddfc1b
+**User asked:** "Is there a way we can make the user click a singluar button which automatially also adds the automation for him?" → Claude: Apple doesn't allow it; offered 1) run on opening Motus, 2) automation optional, 3) native app. User: "How to do 1". Then: "I tapped Update now: it ran the Shortcut and came back to Motus with "Updated from Apple Health"."
+**Claude did:** D-033 in account.js (autoRefresh → runHealthIfDue) and connect.js/html (Update now, messages, step 3 text); simulated the rules in Node; checked Connect at 390 px; deployed.
