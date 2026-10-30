@@ -166,3 +166,7 @@
 ## 2026-10-29 (UTC+03) | Session 2, continued | blur without hard edges
 **User asked:** (screenshot) "Behind the blur, it shows as if it's a cutoff image, fix that"
 **Claude did:** removed the ::before backdrop-blur and ::after overlay (their box showed a rectangle's edge) and the clipping at the page padding; the sample now sits in one `.sample` (index.html, weeks.html), blurred 5px and faded by a mask in fixed px (black by 500 px; board max-height 560 px), the board reaching 16 px past the padding. Checked on wrangler dev at 800 px and 393 px: no edges. Deployed on "Yes, deploy" as version 182baa84; checked live: style.css, index.html, weeks.html identical to the repo; Data page fades with no edges.
+
+## 2026-10-30 (UTC+03) | Session 2, continued | blur sliced at the left edge
+**User asked:** (screenshot of the live Home) "No still same issue ... why does it look like the image behind the blur is cut out"
+**Claude did:** found the real cause: a CSS mask only paints inside the element's own box, and `filter: blur` spills past it, so the sample's left edge ("7.2 h", "1,976") was sliced straight. Fix (67e689c): `.sample` gets 16px padding on every side; `.board.locked` reaches 16px past the page padding (margin -16px -16px 0), unlock moved to top 112px. Zoomed checks on wrangler dev at 1050, 393, 320 px: soft edges both sides, no sideways scroll. Lesson: a blurred element under a mask needs padding at least as wide as the blur spread. Deploy waiting for the owner's OK.
