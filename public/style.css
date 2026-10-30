@@ -288,13 +288,14 @@ details > .recent { padding-left: 12px; font-size: 13px; }
 /* locked dashboard (signed in, no data yet): a sample that gets blurrier and darker towards the bottom, with one
    button on top; the person's own data unlocks it. Also used on Data. */
 .board { position: relative; }
-/* the box reaches past the page padding so the blur is never clipped into a hard edge; the sample itself
-   fades to the background towards the bottom (no separate overlay box, which showed its own edges) */
-.board.locked { margin: 0 -16px; padding: 12px 16px 0; max-height: 560px; overflow: hidden; }
-.board.locked > .sample { filter: blur(5px); pointer-events: none; user-select: none;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0, rgba(0, 0, 0, .55) 180px, rgba(0, 0, 0, .15) 360px, transparent 500px);
-          mask-image: linear-gradient(to bottom, #000 0, rgba(0, 0, 0, .55) 180px, rgba(0, 0, 0, .15) 360px, transparent 500px); }
-.unlock { position: absolute; z-index: 2; left: 0; right: 0; top: 96px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+/* A mask only paints inside the element's own box, and the blur spills past it: so the sample gets 16px of
+   empty space on every side (its box reaches past the page padding) and the blur fades out inside the mask
+   instead of being sliced at the box edge. The board clips nothing sideways. */
+.board.locked { margin: -16px -16px 0; max-height: 580px; overflow: hidden; }
+.board.locked > .sample { padding: 16px 16px 0; filter: blur(5px); pointer-events: none; user-select: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, rgba(0, 0, 0, .55) 200px, rgba(0, 0, 0, .15) 380px, transparent 520px);
+          mask-image: linear-gradient(to bottom, #000 0, rgba(0, 0, 0, .55) 200px, rgba(0, 0, 0, .15) 380px, transparent 520px); }
+.unlock { position: absolute; z-index: 2; left: 0; right: 0; top: 112px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
 .unlock[hidden] { display: none; }
 .unlock b { font-size: 24px; font-weight: 600; letter-spacing: -.01em; }
 
